@@ -789,20 +789,26 @@ async function ensureMicStream() {
 async function ensureCameraStream() {
   if (!cameraToggleEl?.checked) return null;
   if (camStream) return camStream;
-  await resolveMediaDeviceBindings();
-  const videoConstraints = { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 360 } };
-  if (mediaPrefs.videoDeviceId) {
-    videoConstraints.deviceId = { exact: mediaPrefs.videoDeviceId };
+  try {
+    await resolveMediaDeviceBindings();
+    const videoConstraints = { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 360 } };
+    if (mediaPrefs.videoDeviceId) {
+      videoConstraints.deviceId = { exact: mediaPrefs.videoDeviceId };
+    }
+    camStream = await navigator.mediaDevices.getUserMedia({
+      video: videoConstraints,
+      audio: false,
+    });
+    if (cameraFeedEl) {
+      cameraFeedEl.srcObject = camStream;
+      await cameraFeedEl.play().catch(() => {});
+    }
+    return camStream;
+  } catch (error) {
+    if (cameraToggleEl) cameraToggleEl.checked = false;
+    appendMessage('system', `Camera disabled: ${error?.message || 'video init failed'}`);
+    return null;
   }
-  camStream = await navigator.mediaDevices.getUserMedia({
-    video: videoConstraints,
-    audio: false,
-  });
-  if (cameraFeedEl) {
-    cameraFeedEl.srcObject = camStream;
-    await cameraFeedEl.play().catch(() => {});
-  }
-  return camStream;
 }
 
 function releaseCameraStream() {

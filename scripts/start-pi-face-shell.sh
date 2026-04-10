@@ -9,6 +9,7 @@ export SCOUT_BOOT_CAMERA="${SCOUT_BOOT_CAMERA:-1}"
 export SCOUT_FACE_AUTO_LISTEN="${SCOUT_FACE_AUTO_LISTEN:-1}"
 export SCOUT_VIDEO_LABEL_HINT="${SCOUT_VIDEO_LABEL_HINT:-nexigo}"
 export SCOUT_AUDIO_LABEL_HINT="${SCOUT_AUDIO_LABEL_HINT:-nexigo}"
+export SCOUT_PI_NO_SANDBOX="${SCOUT_PI_NO_SANDBOX:-1}"
 
 if command -v chromium-browser >/dev/null 2>&1; then
   CHROMIUM_BIN="chromium-browser"
@@ -41,14 +42,30 @@ if ! curl -fsS "http://127.0.0.1:${PORT}/health" >/dev/null 2>&1; then
   exit 1
 fi
 
+CHROME_ARGS=(
+  --noerrdialogs
+  --disable-infobars
+  --kiosk
+  --app="${URL}"
+  --no-first-run
+  --no-default-browser-check
+  --disable-background-networking
+  --disable-component-update
+  --disable-sync
+  --disable-domain-reliability
+  --disable-breakpad
+  --autoplay-policy=no-user-gesture-required
+  --use-fake-ui-for-media-stream
+  --disable-dev-shm-usage
+  --disable-gpu
+  --use-gl=swiftshader
+  --disable-gpu-memory-buffer-video-frames
+  --disable-features=WebRtcUseGpuMemoryBufferVideoFrames,VaapiVideoDecoder,UseChromeOSDirectVideoDecoder,AcceleratedVideoDecode,WebRtcHwDecoding,WebRtcHwEncoding
+)
+
+if [[ "${SCOUT_PI_NO_SANDBOX}" == "1" ]]; then
+  CHROME_ARGS+=(--no-sandbox --disable-setuid-sandbox)
+fi
+
 exec "${CHROMIUM_BIN}" \
-  --noerrdialogs \
-  --disable-infobars \
-  --kiosk \
-  --app="${URL}" \
-  --autoplay-policy=no-user-gesture-required \
-  --use-fake-ui-for-media-stream \
-  --disable-gpu \
-  --use-gl=swiftshader \
-  --disable-gpu-memory-buffer-video-frames \
-  --disable-features=WebRtcUseGpuMemoryBufferVideoFrames,VaapiVideoDecoder,UseChromeOSDirectVideoDecoder,AcceleratedVideoDecode
+  "${CHROME_ARGS[@]}"
