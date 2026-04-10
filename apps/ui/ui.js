@@ -88,12 +88,15 @@ let motionStartedAt = 0;
 let lastMotionEmitAt = 0;
 let lastMotionSignature = '';
 let mediaWarmupPromise = null;
+let autoListenEnabled = false;
+let autoListenTimer = null;
 let mediaPrefs = {
   audioDeviceId: '',
   videoDeviceId: '',
   audioLabelHint: '',
   videoLabelHint: '',
   bootCamera: false,
+  faceAutoListen: false,
   audioSampleRate: 16000,
   audioChannels: 1,
 };
@@ -936,6 +939,9 @@ async function onVoiceCaptureStopped(mimeType) {
     resumeWakeWordListening();
   } finally {
     assistantBusy = false;
+    if (autoListenEnabled && !isRecording) {
+      scheduleAutoListen(900);
+    }
   }
 }
 
@@ -2014,6 +2020,7 @@ async function showEngineConfig() {
       audioLabelHint: String(config?.media?.audioLabelHint || '').trim(),
       videoLabelHint: String(config?.media?.videoLabelHint || '').trim(),
       bootCamera: Boolean(config?.media?.bootCamera),
+      faceAutoListen: Boolean(config?.media?.faceAutoListen),
       audioSampleRate: Number(config?.media?.audioSampleRate) || 16000,
       audioChannels: Number(config?.media?.audioChannels) || 1,
     };
@@ -2026,6 +2033,7 @@ async function showEngineConfig() {
         `Media binding active${mediaPrefs.videoDeviceId || mediaPrefs.videoLabelHint ? ' | video: pinned' : ''}${mediaPrefs.audioDeviceId || mediaPrefs.audioLabelHint ? ' | mic: pinned' : ''}`
       );
     }
+    configureAutoListenMode();
   } catch {
     appendMessage('engine', 'Unable to read engine config');
   }
@@ -2086,6 +2094,31 @@ function initFaceTapToTalk() {
     setListeningSource('manual');
     await startVoiceCapture('manual');
   });
+}
+
+function scheduleAutoListen(delayMs = 900) {
+  if (!autoListenEnabled) return;
+  if (autoListenTimer) clearTimeout(autoListenTimer);
+  autoListenTimer = setTimeout(async () => {
+    autoListenTimer = null;
+    if (!autoListenEnabled || isRecording || assistantBusy) {
+      scheduleAutoListen(900);
+      return;
+    }
+    try {
+      setListeningSource('auto');
+      await startVoiceCapture('auto');
+    } catch {
+      scheduleAutoListen(1200);
+    }
+  }, delayMs);
+}
+
+function configureAutoListenMode() {
+  autoListenEnabled = Boolean(faceOnlyMode && mediaPrefs.faceAutoListen);
+  if (!autoListenEnabled) return;
+  stopWakeWordListening({ pauseOnly: true });
+  scheduleAutoListen(1200);
 }
 
 async function toggleFullscreen() {
