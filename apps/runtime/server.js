@@ -32,6 +32,7 @@ const SCOUT_VIDEO_DEVICE_ID = String(process.env.SCOUT_VIDEO_DEVICE_ID || '').tr
 const SCOUT_AUDIO_DEVICE_ID = String(process.env.SCOUT_AUDIO_DEVICE_ID || '').trim();
 const SCOUT_VIDEO_LABEL_HINT = String(process.env.SCOUT_VIDEO_LABEL_HINT || '').trim();
 const SCOUT_AUDIO_LABEL_HINT = String(process.env.SCOUT_AUDIO_LABEL_HINT || '').trim();
+const SCOUT_BOOT_CAMERA = String(process.env.SCOUT_BOOT_CAMERA || '0') === '1';
 const SCOUT_AUDIO_SAMPLE_RATE = Number(process.env.SCOUT_AUDIO_SAMPLE_RATE || 16000);
 const SCOUT_AUDIO_CHANNELS = Number(process.env.SCOUT_AUDIO_CHANNELS || 1);
 const SCOUT_ADMIN_TOKEN = String(process.env.SCOUT_ADMIN_TOKEN || '').trim();
@@ -119,6 +120,7 @@ const server = createServer(async (req, res) => {
           audioDeviceId: SCOUT_AUDIO_DEVICE_ID || null,
           videoLabelHint: SCOUT_VIDEO_LABEL_HINT || null,
           audioLabelHint: SCOUT_AUDIO_LABEL_HINT || null,
+          bootCamera: SCOUT_BOOT_CAMERA,
           audioSampleRate: Number.isFinite(SCOUT_AUDIO_SAMPLE_RATE) ? SCOUT_AUDIO_SAMPLE_RATE : 16000,
           audioChannels: Number.isFinite(SCOUT_AUDIO_CHANNELS) ? SCOUT_AUDIO_CHANNELS : 1,
         },

@@ -93,6 +93,7 @@ let mediaPrefs = {
   videoDeviceId: '',
   audioLabelHint: '',
   videoLabelHint: '',
+  bootCamera: false,
   audioSampleRate: 16000,
   audioChannels: 1,
 };
@@ -113,8 +114,8 @@ async function boot() {
   applyLockedConceptTune();
   startHeadMotionLoop();
   initWakeWord();
-  primeMediaPermissions();
   await showEngineConfig();
+  primeMediaPermissions();
 
   const started = await startSession();
   sessionId = started.sessionId;
@@ -2000,9 +2001,13 @@ async function showEngineConfig() {
       videoDeviceId: String(config?.media?.videoDeviceId || '').trim(),
       audioLabelHint: String(config?.media?.audioLabelHint || '').trim(),
       videoLabelHint: String(config?.media?.videoLabelHint || '').trim(),
+      bootCamera: Boolean(config?.media?.bootCamera),
       audioSampleRate: Number(config?.media?.audioSampleRate) || 16000,
       audioChannels: Number(config?.media?.audioChannels) || 1,
     };
+    if (cameraToggleEl && mediaPrefs.bootCamera) {
+      cameraToggleEl.checked = true;
+    }
     if (mediaPrefs.audioDeviceId || mediaPrefs.videoDeviceId || mediaPrefs.audioLabelHint || mediaPrefs.videoLabelHint) {
       appendMessage(
         'system',
@@ -2042,6 +2047,7 @@ function initKioskMode() {
   if (faceOnly) {
     document.body.classList.add('face-only');
     faceOnlyMode = true;
+    if (cameraToggleEl) cameraToggleEl.checked = true;
   }
   attemptFullscreen();
 
