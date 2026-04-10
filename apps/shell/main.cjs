@@ -7,6 +7,18 @@ const FACE_URL = ensureFaceOnlyUrl(RAW_URL);
 
 let mainWindow = null;
 
+if (process.platform === 'linux') {
+  // Raspberry Pi stability: avoid GBM/dma-buf crashes by preferring software rendering path.
+  app.disableHardwareAcceleration();
+  app.commandLine.appendSwitch('use-gl', 'swiftshader');
+  app.commandLine.appendSwitch('enable-unsafe-swiftshader');
+  app.commandLine.appendSwitch('disable-gpu-memory-buffer-video-frames');
+  app.commandLine.appendSwitch(
+    'disable-features',
+    'VaapiVideoDecoder,UseChromeOSDirectVideoDecoder,AcceleratedVideoDecode'
+  );
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
