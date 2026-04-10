@@ -1529,12 +1529,17 @@ function initWakeWord() {
   wakeRecognition.onerror = (event) => {
     const err = String(event?.error || 'unknown');
     if (err === 'not-allowed' || err === 'service-not-allowed') {
-      wakeEnabled = false;
-      updateVoiceStatus('Wake phrase permission denied');
-      appendMessage('system', 'Wake phrase disabled (mic permission denied).');
+      updateVoiceStatus('Wake phrase API blocked, using fallback');
+      appendMessage('system', 'Wake phrase API blocked. Switching to STT wake fallback.');
+      startWakeFallbackLoop();
       return;
     }
     if (err === 'aborted') return;
+    if (err === 'network' || err === 'audio-capture') {
+      updateVoiceStatus('Wake API unstable, using fallback');
+      startWakeFallbackLoop();
+      return;
+    }
     if (wakeEnabled && !wakeSuppressed && !isRecording) {
       scheduleWakeRestart();
     }
@@ -1543,6 +1548,12 @@ function initWakeWord() {
   // Some browsers require user interaction before recognition can start.
   const tryStart = () => startWakeWordListening();
   tryStart();
+  setTimeout(() => {
+    if (!wakeRunning && !isRecording && !wakeSuppressed) {
+      updateVoiceStatus('Wake API idle, using fallback');
+      startWakeFallbackLoop();
+    }
+  }, 3000);
   window.addEventListener('pointerdown', tryStart, { once: true });
   window.addEventListener('keydown', tryStart, { once: true });
 }
@@ -1679,6 +1690,7 @@ function startWakeWordListening() {
     startWakeFallbackLoop();
     return;
   }
+  stopWakeFallbackLoop();
   if (!wakeEnabled || !wakeRecognition || wakeRunning || isRecording) return;
   try {
     wakeRecognition.start();
