@@ -10,6 +10,8 @@
     "smoke": "bash scripts/smoke.sh",
     "kiosk:pi": "bash scripts/start-pi-kiosk.sh",
     "shell:pi": "bash scripts/start-pi-face-shell.sh",
+    "shell:pi:bg": "bash scripts/start-pi-face-shell-bg.sh",
+    "shell:pi:stop": "bash scripts/stop-pi-face-shell.sh",
     "app": "node scripts/start-desktop-shell.mjs"
   },
   "devDependencies": {
