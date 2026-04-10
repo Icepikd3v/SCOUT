@@ -1,0 +1,26 @@
+{
+  "profile": {
+    "name": "Samuel",
+    "preferredName": "Samuel",
+    "location": null,
+    "timezone": null
+  },
+  "preferences": [],
+  "facts": [],
+  "interaction": {
+    "tonePreference": null,
+    "verbosityPreference": null,
+    "responseStyle": [],
+    "goals": []
+  },
+  "learned": {
+    "topicCounts": {
+      "weather": 7,
+      "time": 1
+    },
+    "corrections": [
+      "Actually, let's change my nickname to..."
+    ]
+  },
+  "updatedAt": "2026-04-10T02:23:37.353Z"
+}

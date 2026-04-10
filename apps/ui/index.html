@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>S.C.O.U.T. Phase 1</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="layout">
+      <section class="avatar-panel">
+        <div class="status-row">
+          <span class="dot" id="statusDot"></span>
+          <span id="statusText">Idle</span>
+          <span class="mood-chip" id="moodText">Calm</span>
+          <span class="mood-chip" id="modeText">General</span>
+          <button type="button" id="focusBtn" class="ghost-btn" aria-pressed="false">Strong Focus: Off</button>
+          <button type="button" id="fullscreenBtn" class="ghost-btn">Fullscreen</button>
+        </div>
+        <div class="face" id="face" data-state="idle">
+          <div class="face-bezel"></div>
+          <div class="face-aura"></div>
+          <div class="face-sheen"></div>
+          <div class="face-noise"></div>
+          <div class="face-head"></div>
+          <div class="eyes">
+            <div class="eye">
+              <span class="eye-sclera"></span>
+              <span class="eye-iris"></span>
+              <span class="eye-pupil"></span>
+              <span class="eye-shine eye-shine-main"></span>
+              <span class="eye-shine eye-shine-sub"></span>
+              <span class="eye-lid"></span>
+            </div>
+            <div class="eye">
+              <span class="eye-sclera"></span>
+              <span class="eye-iris"></span>
+              <span class="eye-pupil"></span>
+              <span class="eye-shine eye-shine-main"></span>
+              <span class="eye-shine eye-shine-sub"></span>
+              <span class="eye-lid"></span>
+            </div>
+          </div>
+          <div class="brows">
+            <span class="brow brow-left"></span>
+            <span class="brow brow-right"></span>
+          </div>
+          <div class="cheek cheek-left"></div>
+          <div class="cheek cheek-right"></div>
+          <div class="mouth" id="mouth"></div>
+          <canvas id="detectionOverlay" class="detection-overlay" aria-hidden="true"></canvas>
+          <div class="face-corners">
+            <span class="corner c1"></span>
+            <span class="corner c2"></span>
+            <span class="corner c3"></span>
+            <span class="corner c4"></span>
+          </div>
+        </div>
+
+        <p class="caption">S.C.O.U.T. • Smart Companion for Observation, Understanding, and Training</p>
+      </section>
+
+      <section class="chat-panel">
+        <div id="log" class="log" aria-live="polite"></div>
+        <form id="chatForm" class="composer">
+          <div class="voice-row">
+            <button type="button" id="voiceBtn" class="voice-btn">Start Listening</button>
+            <label class="camera-toggle">
+              <input type="checkbox" id="cameraToggle" />
+              Use camera context
+            </label>
+            <span id="listenSource" class="voice-source">Source: idle</span>
+            <span id="voiceStatus" class="voice-status">Voice idle</span>
+          </div>
+          <label class="speak-toggle">
+            <input type="checkbox" id="speakToggle" checked />
+            Speak replies
+          </label>
+          <input id="messageInput" type="text" placeholder="Ask S.C.O.U.T. for guidance..." required />
+          <button type="submit">Send</button>
+        </form>
+      </section>
+    </main>
+    <video id="cameraFeed" class="camera-feed" autoplay muted playsinline></video>
+    <button id="voiceArmOverlay" class="voice-arm-overlay" type="button" aria-live="polite">
+      <span class="voice-arm-title">Tap To Arm Voice</span>
+      <span class="voice-arm-sub">Enable audio once so S.C.O.U.T. can speak naturally.</span>
+    </button>
+
+    <script type="module" src="/ui.js"></script>
+  </body>
+</html>

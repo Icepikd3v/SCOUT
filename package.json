@@ -1,0 +1,21 @@
+{
+  "name": "scout-phase1",
+  "version": "0.1.0",
+  "private": true,
+  "description": "S.C.O.U.T. Phase 1 runtime and kiosk UI",
+  "type": "module",
+  "scripts": {
+    "start": "node apps/runtime/server.js",
+    "check": "node --check apps/runtime/server.js && node --check apps/ui/ui.js",
+    "smoke": "bash scripts/smoke.sh",
+    "kiosk:pi": "bash scripts/start-pi-kiosk.sh",
+    "shell:pi": "bash scripts/start-pi-face-shell.sh",
+    "app": "node scripts/start-desktop-shell.mjs"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
