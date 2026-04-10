@@ -1,4 +1,5 @@
-const { app, BrowserWindow, session } = require('electron');
+const path = require('node:path');
+const { app, BrowserWindow, session, ipcMain } = require('electron');
 
 const PORT = process.env.PORT || '8787';
 const RAW_URL = process.env.SCOUT_FACE_URL || `http://127.0.0.1:${PORT}/?kiosk=1&face=1`;
@@ -19,6 +20,7 @@ function createWindow() {
       contextIsolation: true,
       sandbox: true,
       nodeIntegration: false,
+      preload: path.join(__dirname, 'preload.cjs'),
     },
   });
 
@@ -75,6 +77,10 @@ function allowMediaPermissions() {
 
 app.whenReady().then(() => {
   allowMediaPermissions();
+  ipcMain.handle('scout-shell-exit', () => {
+    app.quit();
+    return { ok: true };
+  });
   createWindow();
 
   app.on('activate', () => {

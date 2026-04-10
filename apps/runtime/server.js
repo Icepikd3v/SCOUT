@@ -28,6 +28,12 @@ const OPENAI_TTS_SPEED = Number(process.env.OPENAI_TTS_SPEED || 0.96);
 const OPENAI_TRANSCRIBE_MODEL = process.env.OPENAI_TRANSCRIBE_MODEL || 'whisper-1';
 const OPENAI_STT_ENGLISH_ONLY = String(process.env.OPENAI_STT_ENGLISH_ONLY || '1') !== '0';
 const OPENAI_VISION_MODEL = process.env.OPENAI_VISION_MODEL || 'gpt-4o-mini';
+const SCOUT_VIDEO_DEVICE_ID = String(process.env.SCOUT_VIDEO_DEVICE_ID || '').trim();
+const SCOUT_AUDIO_DEVICE_ID = String(process.env.SCOUT_AUDIO_DEVICE_ID || '').trim();
+const SCOUT_VIDEO_LABEL_HINT = String(process.env.SCOUT_VIDEO_LABEL_HINT || '').trim();
+const SCOUT_AUDIO_LABEL_HINT = String(process.env.SCOUT_AUDIO_LABEL_HINT || '').trim();
+const SCOUT_AUDIO_SAMPLE_RATE = Number(process.env.SCOUT_AUDIO_SAMPLE_RATE || 16000);
+const SCOUT_AUDIO_CHANNELS = Number(process.env.SCOUT_AUDIO_CHANNELS || 1);
 const SCOUT_ADMIN_TOKEN = String(process.env.SCOUT_ADMIN_TOKEN || '').trim();
 const SCOUT_FS_ENABLED = String(process.env.SCOUT_FS_ENABLED || '1') !== '0';
 const SCOUT_FS_ALLOW_ABSOLUTE = String(process.env.SCOUT_FS_ALLOW_ABSOLUTE || '0') === '1';
@@ -107,6 +113,14 @@ const server = createServer(async (req, res) => {
           profile: ttsDefaults.profile,
           voice: ttsDefaults.voice,
           speed: ttsDefaults.speed,
+        },
+        media: {
+          videoDeviceId: SCOUT_VIDEO_DEVICE_ID || null,
+          audioDeviceId: SCOUT_AUDIO_DEVICE_ID || null,
+          videoLabelHint: SCOUT_VIDEO_LABEL_HINT || null,
+          audioLabelHint: SCOUT_AUDIO_LABEL_HINT || null,
+          audioSampleRate: Number.isFinite(SCOUT_AUDIO_SAMPLE_RATE) ? SCOUT_AUDIO_SAMPLE_RATE : 16000,
+          audioChannels: Number.isFinite(SCOUT_AUDIO_CHANNELS) ? SCOUT_AUDIO_CHANNELS : 1,
         },
       });
     }

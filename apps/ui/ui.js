@@ -16,6 +16,7 @@ const cameraFeedEl = document.getElementById('cameraFeed');
 const speakToggleEl = document.getElementById('speakToggle');
 const fullscreenBtnEl = document.getElementById('fullscreenBtn');
 const voiceArmOverlayEl = document.getElementById('voiceArmOverlay');
+const exitShellBtnEl = document.getElementById('exitShellBtn');
 
 let sessionId = null;
 let currentMood = 'calm';
@@ -45,6 +46,8 @@ let wakeEnabled = true;
 let wakeRunning = false;
 let wakeSuppressed = false;
 let wakeRestartTimer = null;
+let wakeFallbackTimer = null;
+let wakeFallbackBusy = false;
 let audioUnlocked = false;
 let micMonitorTimer = null;
 let micMonitorContext = null;
@@ -85,6 +88,14 @@ let motionStartedAt = 0;
 let lastMotionEmitAt = 0;
 let lastMotionSignature = '';
 let mediaWarmupPromise = null;
+let mediaPrefs = {
+  audioDeviceId: '',
+  videoDeviceId: '',
+  audioLabelHint: '',
+  videoLabelHint: '',
+  audioSampleRate: 16000,
+  audioChannels: 1,
+};
 
 boot().catch((err) => {
   appendMessage('system', `Boot error: ${err.message}`);
@@ -97,6 +108,8 @@ async function boot() {
   initAudioUnlock();
   initKioskMode();
   initVoiceControls();
+  initFaceTapToTalk();
+  initExitControl();
   applyLockedConceptTune();
   startHeadMotionLoop();
   initWakeWord();
@@ -752,12 +765,19 @@ function initVoiceControls() {
 
 async function ensureMicStream() {
   if (micStream) return micStream;
+  await resolveMediaDeviceBindings();
+  const audioConstraints = {
+    echoCancellation: true,
+    noiseSuppression: true,
+    autoGainControl: true,
+    sampleRate: mediaPrefs.audioSampleRate || 16000,
+    channelCount: mediaPrefs.audioChannels || 1,
+  };
+  if (mediaPrefs.audioDeviceId) {
+    audioConstraints.deviceId = { exact: mediaPrefs.audioDeviceId };
+  }
   micStream = await navigator.mediaDevices.getUserMedia({
-    audio: {
-      echoCancellation: true,
-      noiseSuppression: true,
-      autoGainControl: true,
-    },
+    audio: audioConstraints,
   });
   return micStream;
 }
@@ -765,8 +785,13 @@ async function ensureMicStream() {
 async function ensureCameraStream() {
   if (!cameraToggleEl?.checked) return null;
   if (camStream) return camStream;
+  await resolveMediaDeviceBindings();
+  const videoConstraints = { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 360 } };
+  if (mediaPrefs.videoDeviceId) {
+    videoConstraints.deviceId = { exact: mediaPrefs.videoDeviceId };
+  }
   camStream = await navigator.mediaDevices.getUserMedia({
-    video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 360 } },
+    video: videoConstraints,
     audio: false,
   });
   if (cameraFeedEl) {
@@ -1467,7 +1492,8 @@ function stopMicSilenceMonitor() {
 
 function initWakeWord() {
   if (!SpeechRecCtor) {
-    appendMessage('system', 'Wake phrase unavailable in this browser. Use Start Listening button/double-tap.');
+    appendMessage('system', 'Wake phrase API unavailable. Enabling wake fallback.');
+    startWakeFallbackLoop();
     return;
   }
 
@@ -1520,10 +1546,93 @@ function initWakeWord() {
   window.addEventListener('keydown', tryStart, { once: true });
 }
 
+function startWakeFallbackLoop() {
+  stopWakeFallbackLoop();
+  if (!wakeEnabled) return;
+
+  wakeFallbackTimer = setTimeout(async () => {
+    wakeFallbackTimer = null;
+    if (wakeSuppressed || isRecording || assistantBusy || wakeFallbackBusy) {
+      startWakeFallbackLoop();
+      return;
+    }
+
+    wakeFallbackBusy = true;
+    try {
+      const heardWake = await detectWakePhraseViaStt();
+      if (heardWake && !isRecording) {
+        updateVoiceStatus('Wake phrase detected');
+        setListeningSource('wake');
+        await startVoiceCapture('wake');
+      }
+    } catch {
+      // no-op
+    } finally {
+      wakeFallbackBusy = false;
+      if (!isRecording) startWakeFallbackLoop();
+    }
+  }, 900);
+}
+
+function stopWakeFallbackLoop() {
+  if (!wakeFallbackTimer) return;
+  clearTimeout(wakeFallbackTimer);
+  wakeFallbackTimer = null;
+}
+
+async function detectWakePhraseViaStt() {
+  try {
+    await ensureMicStream();
+  } catch {
+    return false;
+  }
+  if (!micStream || typeof MediaRecorder === 'undefined') return false;
+
+  const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+    ? 'audio/webm;codecs=opus'
+    : 'audio/webm';
+
+  const chunks = [];
+  const recorder = new MediaRecorder(micStream, { mimeType, audioBitsPerSecond: 64000 });
+  const stopPromise = new Promise((resolve) => {
+    recorder.ondataavailable = (event) => {
+      if (event.data.size > 0) chunks.push(event.data);
+    };
+    recorder.onstop = resolve;
+  });
+
+  recorder.start();
+  await sleep(1600);
+  if (recorder.state !== 'inactive') recorder.stop();
+  await stopPromise;
+
+  if (!chunks.length) return false;
+  const blob = new Blob(chunks, { type: mimeType });
+  const transcript = String(await transcribeAudioBlob(blob, mimeType)).toLowerCase();
+  if (!transcript) return false;
+  return containsWakePhrase(transcript);
+}
+
+function initExitControl() {
+  if (!exitShellBtnEl) return;
+  exitShellBtnEl.addEventListener('click', async () => {
+    try {
+      if (window.scoutShell?.exitApp) {
+        const ok = await window.scoutShell.exitApp();
+        if (ok) return;
+      }
+      window.close();
+    } catch {
+      window.close();
+    }
+  });
+}
+
 function primeMediaPermissions() {
   if (mediaWarmupPromise) return mediaWarmupPromise;
   mediaWarmupPromise = (async () => {
     await ensureMicStream().catch(() => null);
+    await resolveMediaDeviceBindings();
     if (cameraToggleEl?.checked) {
       await ensureCameraStream().catch(() => null);
     }
@@ -1533,11 +1642,42 @@ function primeMediaPermissions() {
   return mediaWarmupPromise;
 }
 
+async function resolveMediaDeviceBindings() {
+  const wantsAudioHint = !mediaPrefs.audioDeviceId && mediaPrefs.audioLabelHint;
+  const wantsVideoHint = !mediaPrefs.videoDeviceId && mediaPrefs.videoLabelHint;
+  if (!wantsAudioHint && !wantsVideoHint) return;
+  if (!navigator.mediaDevices?.enumerateDevices) return;
+
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    if (wantsAudioHint) {
+      const hint = mediaPrefs.audioLabelHint.toLowerCase();
+      const found = devices.find(
+        (device) => device.kind === 'audioinput' && String(device.label || '').toLowerCase().includes(hint)
+      );
+      if (found?.deviceId) mediaPrefs.audioDeviceId = found.deviceId;
+    }
+    if (wantsVideoHint) {
+      const hint = mediaPrefs.videoLabelHint.toLowerCase();
+      const found = devices.find(
+        (device) => device.kind === 'videoinput' && String(device.label || '').toLowerCase().includes(hint)
+      );
+      if (found?.deviceId) mediaPrefs.videoDeviceId = found.deviceId;
+    }
+  } catch {
+    // no-op
+  }
+}
+
 function containsWakePhrase(transcript) {
   return /\b(hey scout|ok scout|okay scout)\b/i.test(transcript);
 }
 
 function startWakeWordListening() {
+  if (!SpeechRecCtor) {
+    startWakeFallbackLoop();
+    return;
+  }
   if (!wakeEnabled || !wakeRecognition || wakeRunning || isRecording) return;
   try {
     wakeRecognition.start();
@@ -1553,6 +1693,7 @@ function startWakeWordListening() {
 
 function stopWakeWordListening({ pauseOnly = false } = {}) {
   wakeSuppressed = pauseOnly;
+  stopWakeFallbackLoop();
   if (wakeRestartTimer) {
     clearTimeout(wakeRestartTimer);
     wakeRestartTimer = null;
@@ -1579,6 +1720,10 @@ function resumeWakeWordListening() {
   wakeSuppressed = false;
   if (isConversationWindowActive()) {
     scheduleRelistenIfWindow(buildRelistenDelay());
+    return;
+  }
+  if (!SpeechRecCtor) {
+    startWakeFallbackLoop();
     return;
   }
   if (wakeEnabled && !isRecording) {
@@ -1850,6 +1995,20 @@ async function showEngineConfig() {
       'voice',
       ttsConfig.enabled ? 'Human voice mode active' : 'AI voice disabled (missing OpenAI key)'
     );
+    mediaPrefs = {
+      audioDeviceId: String(config?.media?.audioDeviceId || '').trim(),
+      videoDeviceId: String(config?.media?.videoDeviceId || '').trim(),
+      audioLabelHint: String(config?.media?.audioLabelHint || '').trim(),
+      videoLabelHint: String(config?.media?.videoLabelHint || '').trim(),
+      audioSampleRate: Number(config?.media?.audioSampleRate) || 16000,
+      audioChannels: Number(config?.media?.audioChannels) || 1,
+    };
+    if (mediaPrefs.audioDeviceId || mediaPrefs.videoDeviceId || mediaPrefs.audioLabelHint || mediaPrefs.videoLabelHint) {
+      appendMessage(
+        'system',
+        `Media binding active${mediaPrefs.videoDeviceId || mediaPrefs.videoLabelHint ? ' | video: pinned' : ''}${mediaPrefs.audioDeviceId || mediaPrefs.audioLabelHint ? ' | mic: pinned' : ''}`
+      );
+    }
   } catch {
     appendMessage('engine', 'Unable to read engine config');
   }
@@ -1883,14 +2042,6 @@ function initKioskMode() {
   if (faceOnly) {
     document.body.classList.add('face-only');
     faceOnlyMode = true;
-    document.addEventListener('dblclick', async () => {
-      if (isRecording) {
-        stopVoiceCapture();
-      } else {
-        setListeningSource('manual');
-        await startVoiceCapture('manual');
-      }
-    });
   }
   attemptFullscreen();
 
@@ -1902,6 +2053,21 @@ function initKioskMode() {
 
   window.addEventListener('pointerdown', enableOnInteraction, { once: true });
   window.addEventListener('keydown', enableOnInteraction, { once: true });
+}
+
+function initFaceTapToTalk() {
+  if (!faceEl) return;
+  faceEl.addEventListener('click', async (event) => {
+    if (!faceOnlyMode) return;
+    const target = event.target;
+    if (target && typeof target.closest === 'function' && target.closest('.exit-shell-btn')) return;
+    if (isRecording) {
+      stopVoiceCapture();
+      return;
+    }
+    setListeningSource('manual');
+    await startVoiceCapture('manual');
+  });
 }
 
 async function toggleFullscreen() {

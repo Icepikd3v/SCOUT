@@ -126,6 +126,7 @@ On Raspberry Pi OS:
 ```bash
 git clone <your-repo-url> scout
 cd scout
+bash scripts/pi-fix.sh --iface wlan0 --ip 192.168.1.23/24 --router 192.168.1.1 --sink-hint onn --video-hint nexigo --audio-hint nexigo
 npm install
 npm run shell:pi
 ```

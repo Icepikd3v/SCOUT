@@ -1536,5 +1536,29 @@
         "createdAt": "2026-04-10T02:23:38.388Z"
       }
     ]
+  },
+  "session_mnsbfv49_s29yk": {
+    "id": "session_mnsbfv49_s29yk",
+    "mode": "general",
+    "strongFocus": false,
+    "startedAt": "2026-04-10T02:57:52.713Z",
+    "endedAt": null,
+    "messages": []
+  },
+  "session_mnsc8s3t_963uq": {
+    "id": "session_mnsc8s3t_963uq",
+    "mode": "general",
+    "strongFocus": false,
+    "startedAt": "2026-04-10T03:20:21.833Z",
+    "endedAt": null,
+    "messages": []
+  },
+  "session_mnscuuhd_87lr3": {
+    "id": "session_mnscuuhd_87lr3",
+    "mode": "general",
+    "strongFocus": false,
+    "startedAt": "2026-04-10T03:37:31.345Z",
+    "endedAt": null,
+    "messages": []
   }
 }
