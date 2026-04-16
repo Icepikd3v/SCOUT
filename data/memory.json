@@ -5,7 +5,9 @@
     "location": null,
     "timezone": null
   },
-  "preferences": [],
+  "preferences": [
+    "I want you to find William Butcher."
+  ],
   "facts": [],
   "interaction": {
     "tonePreference": null,
@@ -15,12 +17,14 @@
   },
   "learned": {
     "topicCounts": {
-      "weather": 7,
-      "time": 1
+      "weather": 16,
+      "time": 4,
+      "training": 18,
+      "sports": 1
     },
     "corrections": [
       "Actually, let's change my nickname to..."
     ]
   },
-  "updatedAt": "2026-04-10T02:23:37.353Z"
+  "updatedAt": "2026-04-16T22:00:30.135Z"
 }

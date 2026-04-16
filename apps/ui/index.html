@@ -82,12 +82,14 @@
       </section>
     </main>
     <button id="exitShellBtn" class="exit-shell-btn" type="button" aria-label="Exit to desktop">Exit</button>
-    <video id="cameraFeed" class="camera-feed" autoplay muted playsinline></video>
-    <button id="voiceArmOverlay" class="voice-arm-overlay" type="button" aria-live="polite">
-      <span class="voice-arm-title">Tap To Arm Voice</span>
-      <span class="voice-arm-sub">Enable audio once so S.C.O.U.T. can speak naturally.</span>
+    <div id="kioskHud" class="kiosk-hud" aria-live="polite">
+      <span class="kiosk-dot" id="kioskDot"></span>
+      <span id="kioskStatusText">Idle</span>
+    </div>
+    <button id="tapToTalkBtn" class="tap-to-talk-btn" type="button" aria-label="Tap to talk">
+      Tap to Talk
     </button>
-
+    <video id="cameraFeed" class="camera-feed" autoplay muted playsinline></video>
     <script type="module" src="/ui.js"></script>
   </body>
 </html>

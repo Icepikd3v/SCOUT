@@ -8,11 +8,20 @@
     "start": "node apps/runtime/server.js",
     "check": "node --check apps/runtime/server.js && node --check apps/ui/ui.js",
     "smoke": "bash scripts/smoke.sh",
+    "qa:mac": "bash scripts/qa/mac-e2e.sh",
+    "pi:bootstrap": "bash scripts/pi/bootstrap.sh",
+    "pi:preflight": "bash scripts/pi/preflight.sh",
+    "pi:systemd": "bash scripts/pi/setup-systemd.sh",
     "kiosk:pi": "bash scripts/start-pi-kiosk.sh",
     "shell:pi": "bash scripts/start-pi-face-shell.sh",
     "shell:pi:bg": "bash scripts/start-pi-face-shell-bg.sh",
     "shell:pi:stop": "bash scripts/stop-pi-face-shell.sh",
-    "app": "node scripts/start-desktop-shell.mjs"
+    "app": "node scripts/start-desktop-shell.mjs",
+    "mobile:install": "cd apps/mobile && npm install",
+    "mobile:build": "cd apps/mobile && npm run build:web",
+    "mobile:sync": "cd apps/mobile && npm run cap:sync",
+    "mobile:android": "cd apps/mobile && npm run cap:android",
+    "mobile:ios": "cd apps/mobile && npm run cap:ios"
   },
   "devDependencies": {
     "electron": "^31.0.0"

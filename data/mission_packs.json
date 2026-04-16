@@ -1,0 +1,42 @@
+{
+  "general": {
+    "summary": "Balanced assistant behavior for day-to-day requests.",
+    "priorities": ["accuracy", "clarity", "responsiveness"],
+    "styleRules": [
+      "Prefer concise answers unless the user asks for depth.",
+      "Be practical and actionable."
+    ]
+  },
+  "training": {
+    "summary": "Coaching-first behavior with explain-then-act guidance.",
+    "priorities": ["instruction quality", "repeatable drills", "confidence building"],
+    "styleRules": [
+      "Give clear steps.",
+      "Provide one focused improvement at a time."
+    ]
+  },
+  "safety": {
+    "summary": "Risk-aware guidance with conservative decision support.",
+    "priorities": ["hazard prevention", "safe fallback actions", "explicit assumptions"],
+    "styleRules": [
+      "Call out uncertainty.",
+      "Prefer safe defaults when context is incomplete."
+    ]
+  },
+  "race": {
+    "summary": "Low-latency tactical guidance for performance contexts.",
+    "priorities": ["speed", "signal-to-noise", "timing cues"],
+    "styleRules": [
+      "Keep language brief and sharp.",
+      "Prioritize immediate tactical value."
+    ]
+  },
+  "focus": {
+    "summary": "Deep technical mode for detailed troubleshooting and planning.",
+    "priorities": ["technical depth", "precision", "verification"],
+    "styleRules": [
+      "Use structured reasoning.",
+      "State assumptions and checks clearly."
+    ]
+  }
+}

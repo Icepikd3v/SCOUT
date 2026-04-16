@@ -1,3 +1,5 @@
+import { matchesObservationIntent } from '/shared/observation-intent.js';
+
 const logEl = document.getElementById('log');
 const formEl = document.getElementById('chatForm');
 const inputEl = document.getElementById('messageInput');
@@ -15,8 +17,11 @@ const listenSourceEl = document.getElementById('listenSource');
 const cameraFeedEl = document.getElementById('cameraFeed');
 const speakToggleEl = document.getElementById('speakToggle');
 const fullscreenBtnEl = document.getElementById('fullscreenBtn');
-const voiceArmOverlayEl = document.getElementById('voiceArmOverlay');
 const exitShellBtnEl = document.getElementById('exitShellBtn');
+const tapToTalkBtnEl = document.getElementById('tapToTalkBtn');
+const kioskHudEl = document.getElementById('kioskHud');
+const kioskDotEl = document.getElementById('kioskDot');
+const kioskStatusTextEl = document.getElementById('kioskStatusText');
 
 let sessionId = null;
 let currentMood = 'calm';
@@ -62,12 +67,19 @@ const LOCKED_CONCEPT_TUNE = Object.freeze({
   smileWidthPct: 128,
 });
 const VOICE_MAX_CAPTURE_MS = 7600;
-const VOICE_NO_SPEECH_TIMEOUT_MS = 2800;
+const VOICE_FOLLOWUP_CAPTURE_MS = 10000;
+const OBS_SCAN_FRAME_COUNT = 3;
+const OBS_SCAN_FRAME_INTERVAL_MS = 180;
+const VOICE_NO_SPEECH_TIMEOUT_MS = 2200;
 const VOICE_END_OF_TURN_SILENCE_MS = 1150;
 const VOICE_MIN_CAPTURE_MS = 650;
+const VOICE_ACTIVITY_RMS_THRESHOLD = 0.026;
+const VOICE_ACTIVITY_DYNAMIC_MULTIPLIER = 2.2;
+const MIC_BASELINE_SAMPLE_MS = 1700;
 const IDLE_SESSION_RESET_MS = 8 * 60 * 1000;
 const MUSIC_ARM_WINDOW_MS = 35000;
 const VOICE_ASSISTANT_COOLDOWN_MS = 1400;
+const FACE_UI_HIDE_DELAY_MS = 4500;
 let conversationWindowUntil = 0;
 let conversationMisses = 0;
 let relistenTimer = null;
@@ -80,9 +92,6 @@ let musicDetectArmedUntil = 0;
 let lastInputWasVoice = false;
 let lastVoiceTurnAt = 0;
 let startupMutedUntil = Date.now() + 1200;
-let pendingSpokenReply = '';
-let replayingPendingSpeech = false;
-let audioUnlockHandlerAttached = false;
 let motionFrame = null;
 let motionStartedAt = 0;
 let lastMotionEmitAt = 0;
@@ -100,6 +109,27 @@ let mediaPrefs = {
   audioSampleRate: 16000,
   audioChannels: 1,
 };
+let activeSpeakJobId = 0;
+let activeAudioElement = null;
+let assistantSpeechActive = false;
+let assistantSpeechHoldUntil = 0;
+let lastAssistantReplyText = '';
+let lastVoiceTranscriptNormalized = '';
+let lastVoiceTranscriptAt = 0;
+let openAiTtsBlockedUntil = 0;
+let openAiVoiceUnlockNoticeShown = false;
+let cameraAutoEnableNoticeShown = false;
+let activeVoiceCaptureSource = 'idle';
+let micNoiseFloorRms = 0;
+let micCalibrating = false;
+let uiHideTimer = null;
+let uiVisible = true;
+let eyeMotionPhase = Math.random() * Math.PI * 2;
+let eyeSaccadeX = 0;
+let eyeSaccadeY = 0;
+let eyeSaccadeUntil = 0;
+let eyeBlinkUntil = 0;
+let sceneHistory = [];
 
 boot().catch((err) => {
   appendMessage('system', `Boot error: ${err.message}`);
@@ -109,10 +139,11 @@ async function boot() {
   initDetectionOverlay();
   initIdleSessionReset();
   initSpeech();
-  initAudioUnlock();
   initKioskMode();
   initVoiceControls();
   initFaceTapToTalk();
+  initTapToTalkButton();
+  initUiAutoHide();
   initExitControl();
   applyLockedConceptTune();
   startHeadMotionLoop();
@@ -153,8 +184,9 @@ async function boot() {
   }
 
   renderFocusButton();
-  updateVoiceStatus('Voice idle');
+  updateVoiceStatus('Click Start Listening to begin');
   setListeningSource('idle');
+  updateKioskStatus('Idle');
   markActivity();
 }
 
@@ -218,9 +250,42 @@ function updateHeadMotion(nowMs) {
     baseYawRate *= 0.75;
   }
 
+  const tSec = t / 1000;
+  const now = Date.now();
+  if (now > eyeSaccadeUntil) {
+    const saccadeChance = state === 'speaking' ? 0.06 : state === 'thinking' ? 0.08 : 0.04;
+    if (Math.random() < saccadeChance) {
+      const xRange = state === 'thinking' ? 4.8 : 3.4;
+      const yRange = state === 'thinking' ? 3.2 : 2.4;
+      eyeSaccadeX = (Math.random() * 2 - 1) * xRange;
+      eyeSaccadeY = (Math.random() * 2 - 1) * yRange;
+      eyeSaccadeUntil = now + 120 + Math.random() * 260;
+    } else {
+      eyeSaccadeX *= 0.35;
+      eyeSaccadeY *= 0.35;
+      eyeSaccadeUntil = now + 180 + Math.random() * 280;
+    }
+  }
+  eyeMotionPhase += 0.045 + energy * 0.015;
+  const microX = Math.sin(tSec * 1.6 + eyeMotionPhase) * 0.65;
+  const microY = Math.cos(tSec * 1.2 + eyeMotionPhase * 0.7) * 0.45;
+  const lookX = eyeSaccadeX + microX + yaw * 0.55;
+  const lookY = eyeSaccadeY + microY - pitch * 0.35;
+
+  if (now > eyeBlinkUntil && Math.random() < 0.0045) {
+    eyeBlinkUntil = now + 120 + Math.random() * 100;
+  }
+  const blinkL = now < eyeBlinkUntil ? 1 : 0;
+  const blinkR = now < eyeBlinkUntil - 20 ? 1 : 0;
+
   faceEl.style.setProperty('--head-yaw-px', `${yaw.toFixed(3)}px`);
   faceEl.style.setProperty('--head-pitch-px', `${pitch.toFixed(3)}px`);
   faceEl.style.setProperty('--head-roll-deg', `${roll.toFixed(3)}deg`);
+  faceEl.style.setProperty('--eye-look-x', `${lookX.toFixed(3)}px`);
+  faceEl.style.setProperty('--eye-look-y', `${lookY.toFixed(3)}px`);
+  faceEl.style.setProperty('--blink-left', String(blinkL));
+  faceEl.style.setProperty('--blink-right', String(blinkR));
+  faceEl.style.setProperty('--cheek-pulse', String((Math.max(0, Number(faceEl.style.getPropertyValue('--speak-level') || '0')) * 0.75).toFixed(3)));
 
   emitMotionIntent({
     state,
@@ -273,6 +338,7 @@ formEl.addEventListener('submit', async (event) => {
   const message = inputEl.value.trim();
   if (!message || !sessionId) return;
   markActivity();
+  await unlockAudioOutput();
 
   inputEl.value = '';
   if (isMusicIdentifyVoiceIntent(message)) {
@@ -288,6 +354,7 @@ formEl.addEventListener('submit', async (event) => {
 });
 
 async function sendUserMessage(message, author = 'you') {
+  if (assistantBusy) return;
   markActivity();
   assistantBusy = true;
   lastInputWasVoice = author.includes('(voice)');
@@ -306,6 +373,7 @@ async function sendUserMessage(message, author = 'you') {
     });
 
     const reply = result.reply || 'No reply.';
+    lastAssistantReplyText = reply;
     applyAiState(result.state);
     lastAssistantExpression = inferReplyExpression(reply);
     applyExpressionProfile(lastAssistantExpression);
@@ -330,7 +398,6 @@ async function sendUserMessage(message, author = 'you') {
     await sleep(VOICE_ASSISTANT_COOLDOWN_MS);
 
     setAvatarState('idle');
-    openConversationWindow(buildConversationWindowMs(reply));
     maybeStartFollowupListening(reply);
     resumeWakeWordListening();
   } catch (error) {
@@ -372,12 +439,14 @@ function appendMessage(author, text) {
 function setAvatarState(state) {
   faceEl.dataset.state = state;
   statusTextEl.textContent = state.charAt(0).toUpperCase() + state.slice(1);
+  updateKioskStatus(state.charAt(0).toUpperCase() + state.slice(1));
   syncExpressionForAvatarState(state);
   if (state !== 'speaking') {
     stopLipSync(true);
   } else if (mouthEl?.dataset?.viseme === 'neutral') {
     mouthEl.dataset.viseme = 'closed';
   }
+  scheduleFaceUiHide();
 }
 
 function applyAiState(state) {
@@ -387,37 +456,60 @@ function applyAiState(state) {
   currentMood = mood;
   currentMode = mode;
   document.body.dataset.mood = mood;
+  document.body.dataset.mode = mode;
   moodTextEl.textContent = capitalize(mood);
   modeTextEl.textContent = `Mode: ${capitalize(mode)}`;
   syncExpressionForAvatarState(faceEl?.dataset?.state || 'idle');
 }
 
+function updateKioskStatus(text) {
+  if (kioskStatusTextEl) kioskStatusTextEl.textContent = String(text || 'Idle');
+  const state = String(faceEl?.dataset?.state || '').trim().toLowerCase() || 'idle';
+  if (kioskHudEl) kioskHudEl.dataset.state = state;
+  if (kioskDotEl) kioskDotEl.dataset.state = state;
+}
+
 function speak(text) {
   return new Promise((resolve) => {
-    if (ttsConfig.enabled) {
-      speakWithOpenAi(text)
+    const jobId = ++activeSpeakJobId;
+    stopAllSpeechPlayback();
+    const canUseOpenAiTts = ttsConfig.enabled && Date.now() >= openAiTtsBlockedUntil;
+    if (canUseOpenAiTts) {
+      speakWithOpenAi(text, jobId)
         .then(resolve)
         .catch((error) => {
+          if (isSpeakCancelled(error)) {
+            resolve();
+            return;
+          }
           appendMessage('system', `AI voice fallback: ${error.message}`);
           if (isAudioPermissionError(error)) {
-            queuePendingSpeechReplay(text);
+            openAiTtsBlockedUntil = Date.now() + 60_000;
             audioUnlocked = false;
-            renderVoiceArmOverlay();
-            updateVoiceStatus('Tap once to enable voice output');
-            appendMessage('system', 'Audio output is blocked by browser policy. Tap/click once and I will replay the response.');
+            updateVoiceStatus('OpenAI voice blocked until one-time voice unlock');
+            maybeShowOpenAiVoiceUnlockNotice();
+            speakWithBrowserVoice(text, jobId).then(resolve);
+            return;
           } else {
-            appendMessage('system', 'Human voice path unavailable right now. Skipping robotic fallback.');
+            appendMessage('system', 'Human voice path unavailable right now. I will keep text output active.');
           }
           resolve();
         });
       return;
     }
 
-    speakWithBrowserVoice(text).then(resolve);
+    if (!ttsConfig.enabled) {
+      speakWithBrowserVoice(text, jobId).then(resolve);
+      return;
+    }
+    if (!openAiVoiceUnlockNoticeShown) {
+      maybeShowOpenAiVoiceUnlockNotice();
+    }
+    speakWithBrowserVoice(text, jobId).then(resolve);
   });
 }
 
-function speakWithBrowserVoice(text) {
+function speakWithBrowserVoice(text, jobId) {
   return new Promise((resolve) => {
     if (!('speechSynthesis' in window)) {
       appendMessage('system', 'Speech synthesis is not supported in this browser.');
@@ -439,40 +531,59 @@ function speakWithBrowserVoice(text) {
     const done = () => {
       if (settled) return;
       settled = true;
+      assistantSpeechActive = false;
+      assistantSpeechHoldUntil = Date.now() + 900;
       stopLipSync(true);
       resolve();
     };
 
-    u.onstart = () => startLipSync(text);
+    u.onstart = () => {
+      assistantSpeechActive = true;
+      assistantSpeechHoldUntil = Date.now() + 1800;
+      startLipSync(text);
+    };
     u.onend = done;
     u.onerror = (event) => {
       appendMessage('system', `Speech error: ${event.error || 'unknown'}`);
       done();
     };
+    if (jobId !== activeSpeakJobId) {
+      done();
+      return;
+    }
     window.speechSynthesis.resume();
     window.speechSynthesis.speak(u);
     setTimeout(done, Math.max(1800, text.length * 90));
   });
 }
 
-async function speakWithOpenAi(text) {
+async function speakWithOpenAi(text, jobId) {
   const chunks = splitSpeechText(text);
   if (!chunks.length) return;
+  assistantSpeechActive = true;
+  assistantSpeechHoldUntil = Date.now() + 2200;
 
-  let nextBlobPromise = fetchTtsBlob(chunks[0]);
-  for (let i = 0; i < chunks.length; i += 1) {
-    const blob = await nextBlobPromise;
-    const playPromise = playAudioBlob(blob);
+  try {
+    let nextBlobPromise = fetchTtsBlob(chunks[0]);
+    for (let i = 0; i < chunks.length; i += 1) {
+      if (jobId !== activeSpeakJobId) {
+        throw new Error('speech-cancelled');
+      }
+      const blob = await nextBlobPromise;
+      const playPromise = playAudioBlob(blob, jobId);
 
-    const nextChunk = chunks[i + 1];
-    if (nextChunk) {
-      nextBlobPromise = fetchTtsBlob(nextChunk);
+      const nextChunk = chunks[i + 1];
+      if (nextChunk) {
+        nextBlobPromise = fetchTtsBlob(nextChunk);
+      }
+
+      await playPromise;
     }
-
-    await playPromise;
+    stopLipSync(true);
+  } finally {
+    assistantSpeechActive = false;
+    assistantSpeechHoldUntil = Date.now() + 1000;
   }
-
-  stopLipSync(true);
 }
 
 async function fetchTtsBlob(text) {
@@ -541,10 +652,15 @@ function buildVoiceSpeed() {
   return 1.0;
 }
 
-function playAudioBlob(blob) {
+function playAudioBlob(blob, jobId) {
   return new Promise((resolve, reject) => {
+    if (jobId !== activeSpeakJobId) {
+      resolve();
+      return;
+    }
     const audioUrl = URL.createObjectURL(blob);
     const audio = new Audio(audioUrl);
+    activeAudioElement = audio;
     audio.preload = 'auto';
     let stopAudioSync = null;
 
@@ -555,6 +671,7 @@ function playAudioBlob(blob) {
       if (typeof stopAudioSync === 'function') {
         stopAudioSync();
       }
+      activeAudioElement = null;
       URL.revokeObjectURL(audioUrl);
       resolve();
     };
@@ -562,6 +679,7 @@ function playAudioBlob(blob) {
       if (typeof stopAudioSync === 'function') {
         stopAudioSync();
       }
+      activeAudioElement = null;
       URL.revokeObjectURL(audioUrl);
       reject(new Error('audio playback failed'));
     };
@@ -574,6 +692,32 @@ function playAudioBlob(blob) {
         reject(err);
       });
   });
+}
+
+function stopAllSpeechPlayback() {
+  try {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+  } catch {
+    // no-op
+  }
+  if (activeAudioElement) {
+    try {
+      activeAudioElement.pause();
+      activeAudioElement.currentTime = 0;
+    } catch {
+      // no-op
+    }
+    activeAudioElement = null;
+  }
+  assistantSpeechActive = false;
+  assistantSpeechHoldUntil = Date.now() + 650;
+  stopLipSync(true);
+}
+
+function isSpeakCancelled(error) {
+  return String(error?.message || '').toLowerCase().includes('speech-cancelled');
 }
 
 function startAudioDrivenLipSync(audio) {
@@ -718,17 +862,39 @@ function buildVisemeSequence(text) {
   if (!source) return [];
 
   const seq = [];
-  for (const ch of source) {
+  const digraphs = [
+    ['th', 'small'],
+    ['sh', 'small'],
+    ['ch', 'small'],
+    ['ph', 'small'],
+    ['oo', 'wide'],
+    ['ee', 'wide'],
+    ['ou', 'wide'],
+  ];
+
+  for (let i = 0; i < source.length; i += 1) {
+    const ch = source[i];
+    const nextTwo = source.slice(i, i + 2).toLowerCase();
+    const digraph = digraphs.find(([token]) => token === nextTwo);
+    if (digraph) {
+      seq.push(digraph[1], 'small');
+      i += 1;
+      continue;
+    }
     if (/\s/.test(ch)) {
       seq.push('closed');
     } else if (/[.,!?;:]/.test(ch)) {
       seq.push('closed', 'closed');
     } else if (/[aeiou]/i.test(ch)) {
-      seq.push(Math.random() > 0.5 ? 'wide' : 'small', 'closed');
+      seq.push(Math.random() > 0.32 ? 'wide' : 'small', 'small');
     } else if (/[mbp]/i.test(ch)) {
       seq.push('closed');
+    } else if (/[fv]/i.test(ch)) {
+      seq.push('small', 'closed');
+    } else if (/[rlwy]/i.test(ch)) {
+      seq.push('smile', 'small');
     } else {
-      seq.push(Math.random() > 0.72 ? 'smile' : 'small');
+      seq.push(Math.random() > 0.64 ? 'smile' : 'small');
     }
   }
   if (!seq.includes('closed')) seq.push('closed');
@@ -743,12 +909,17 @@ function visemeLevel(viseme) {
 }
 
 function setSpeakLevel(level) {
-  faceEl.style.setProperty('--speak-level', String(level));
+  const prev = Number.parseFloat(faceEl.style.getPropertyValue('--speak-level') || '0');
+  const target = Number(level) || 0;
+  const smoothed = prev + (target - prev) * 0.58;
+  faceEl.style.setProperty('--speak-level', String(smoothed));
+  faceEl.style.setProperty('--cheek-pulse', String((smoothed * 0.85).toFixed(3)));
 }
 
 function initVoiceControls() {
   if (!voiceBtnEl) return;
   voiceBtnEl.addEventListener('click', async () => {
+    await unlockAudioOutput();
     if (isRecording) {
       stopVoiceCapture();
       return;
@@ -767,6 +938,53 @@ function initVoiceControls() {
   }
 }
 
+function initTapToTalkButton() {
+  if (!tapToTalkBtnEl) return;
+  tapToTalkBtnEl.addEventListener('click', async () => {
+    markActivity();
+    await unlockAudioOutput();
+    if (isRecording) {
+      stopVoiceCapture();
+      return;
+    }
+    setListeningSource('tap');
+    await startVoiceCapture('tap');
+  });
+}
+
+function initUiAutoHide() {
+  const onActivity = () => markActivity();
+  window.addEventListener('pointerdown', onActivity, { passive: true });
+  window.addEventListener('pointermove', onActivity, { passive: true });
+  window.addEventListener('keydown', onActivity);
+  scheduleFaceUiHide();
+}
+
+function scheduleFaceUiHide() {
+  if (!faceOnlyMode) return;
+  if (uiHideTimer) clearTimeout(uiHideTimer);
+  uiHideTimer = setTimeout(() => {
+    if (isRecording || assistantBusy || isAssistantSpeakingNow()) {
+      scheduleFaceUiHide();
+      return;
+    }
+    hideFaceUi();
+  }, FACE_UI_HIDE_DELAY_MS);
+}
+
+function revealFaceUi() {
+  if (!faceOnlyMode) return;
+  uiVisible = true;
+  document.body.classList.remove('ui-hidden');
+  scheduleFaceUiHide();
+}
+
+function hideFaceUi() {
+  if (!faceOnlyMode) return;
+  uiVisible = false;
+  document.body.classList.add('ui-hidden');
+}
+
 async function ensureMicStream() {
   if (micStream) return micStream;
   await resolveMediaDeviceBindings();
@@ -783,7 +1001,51 @@ async function ensureMicStream() {
   micStream = await navigator.mediaDevices.getUserMedia({
     audio: audioConstraints,
   });
+  calibrateMicNoiseFloor(micStream).catch(() => {});
   return micStream;
+}
+
+async function calibrateMicNoiseFloor(stream) {
+  if (!stream || micCalibrating) return;
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  if (!Ctx) return;
+  micCalibrating = true;
+  let ctx;
+  try {
+    ctx = new Ctx();
+    const source = ctx.createMediaStreamSource(stream);
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 512;
+    analyser.smoothingTimeConstant = 0.85;
+    source.connect(analyser);
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    const start = Date.now();
+    let sum = 0;
+    let samples = 0;
+    while (Date.now() - start < MIC_BASELINE_SAMPLE_MS) {
+      analyser.getByteTimeDomainData(data);
+      let frame = 0;
+      for (let i = 0; i < data.length; i += 1) {
+        const centered = (data[i] - 128) / 128;
+        frame += centered * centered;
+      }
+      sum += Math.sqrt(frame / data.length);
+      samples += 1;
+      await sleep(42);
+    }
+    if (samples > 0) {
+      micNoiseFloorRms = Math.max(0.005, Math.min(0.06, sum / samples));
+    }
+    try {
+      source.disconnect();
+      analyser.disconnect();
+    } catch {
+      // no-op
+    }
+  } finally {
+    micCalibrating = false;
+    if (ctx) await ctx.close().catch(() => {});
+  }
 }
 
 async function ensureCameraStream() {
@@ -822,7 +1084,12 @@ function releaseCameraStream() {
   }
 }
 
-async function startVoiceCapture(source = 'manual') {
+async function startVoiceCapture(source = 'manual', options = {}) {
+  const maxCaptureMs = Math.max(1200, Number(options?.maxCaptureMs) || VOICE_MAX_CAPTURE_MS);
+  if (isAssistantSpeakingNow() || assistantBusy) {
+    updateVoiceStatus('Waiting for assistant to finish...');
+    return false;
+  }
   try {
     stopWakeWordListening({ pauseOnly: true });
     await ensureMicStream();
@@ -840,18 +1107,25 @@ async function startVoiceCapture(source = 'manual') {
     };
     mediaRecorder.start();
     isRecording = true;
+    activeVoiceCaptureSource = source;
     startMicSilenceMonitor();
     setAvatarState('listening');
     setListeningSource(source);
     updateVoiceStatus('Listening...');
     voiceBtnEl.textContent = 'Stop Listening';
     voiceBtnEl.classList.add('listening');
+    if (tapToTalkBtnEl) {
+      tapToTalkBtnEl.textContent = 'Stop Listening';
+      tapToTalkBtnEl.classList.add('listening');
+    }
     setTimeout(() => {
       if (isRecording) stopVoiceCapture();
-    }, VOICE_MAX_CAPTURE_MS);
+    }, maxCaptureMs);
+    return true;
   } catch (error) {
     updateVoiceStatus(`Mic error: ${error.message}`);
     appendMessage('system', `Voice setup error: ${error.message}`);
+    return false;
   }
 }
 
@@ -859,10 +1133,15 @@ function stopVoiceCapture() {
   if (!isRecording || !mediaRecorder) return;
   isRecording = false;
   stopMicSilenceMonitor();
+  activeVoiceCaptureSource = 'processing';
   updateVoiceStatus('Processing voice...');
   setListeningSource('processing');
   voiceBtnEl.textContent = 'Start Listening';
   voiceBtnEl.classList.remove('listening');
+  if (tapToTalkBtnEl) {
+    tapToTalkBtnEl.textContent = 'Tap to Talk';
+    tapToTalkBtnEl.classList.remove('listening');
+  }
   mediaRecorder.stop();
 }
 
@@ -891,6 +1170,7 @@ async function onVoiceCaptureStopped(mimeType) {
       updateVoiceStatus('Ignoring background speech');
       setListeningSource('idle');
       setAvatarState('idle');
+      activeVoiceCaptureSource = 'idle';
       resumeWakeWordListening();
       return;
     }
@@ -907,6 +1187,7 @@ async function onVoiceCaptureStopped(mimeType) {
         music?.found && music?.reply
           ? music.reply
           : music?.reply || 'I could not identify the song yet. Try another short sample.';
+      lastAssistantReplyText = reply;
       lastAssistantExpression = inferReplyExpression(reply);
       applyExpressionProfile(lastAssistantExpression);
       setAvatarState('speaking');
@@ -921,7 +1202,6 @@ async function onVoiceCaptureStopped(mimeType) {
       }
       await sleep(VOICE_ASSISTANT_COOLDOWN_MS);
       setAvatarState('idle');
-      openConversationWindow(buildConversationWindowMs(reply));
       maybeStartFollowupListening(reply);
       updateVoiceStatus('Voice idle');
       setListeningSource('idle');
@@ -1012,103 +1292,246 @@ async function identifyMusicFromAudioBlob(blob, mimeType, hintText = '') {
 }
 
 async function captureObservationContext(message) {
+  const wantsObservation = shouldUseObservationForMessage(message);
+  if (wantsObservation && cameraToggleEl && !cameraToggleEl.checked) {
+    cameraToggleEl.checked = true;
+    if (!cameraAutoEnableNoticeShown) {
+      cameraAutoEnableNoticeShown = true;
+      appendMessage('system', 'Camera auto-enabled for visual scan requests.');
+    }
+  }
+
   if (!cameraToggleEl?.checked) {
     clearDetectionOverlay();
     lastDetectionSummary = '';
+    sceneHistory = [];
     return '';
   }
-  if (!shouldUseObservationForMessage(message)) return '';
+  if (!wantsObservation) return '';
   try {
     await ensureCameraStream();
     if (!cameraFeedEl || cameraFeedEl.videoWidth === 0 || cameraFeedEl.videoHeight === 0) return '';
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.min(640, cameraFeedEl.videoWidth);
-    canvas.height = Math.min(360, cameraFeedEl.videoHeight);
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return '';
-    ctx.drawImage(cameraFeedEl, 0, 0, canvas.width, canvas.height);
-    const imageDataUrl = canvas.toDataURL('image/jpeg', 0.72);
+    const frameSequence = await captureObservationFrameSequence(cameraFeedEl, OBS_SCAN_FRAME_COUNT, OBS_SCAN_FRAME_INTERVAL_MS);
+    if (!frameSequence.length) return '';
+    const latestFrame = frameSequence[frameSequence.length - 1];
+    const detectResults = await Promise.all(
+      frameSequence.map((imageDataUrl) =>
+        fetchJson('/api/detect', {
+          method: 'POST',
+          body: JSON.stringify({ imageDataUrl }),
+        }).catch(() => ({}))
+      )
+    );
+    const detectResult = findLastValidDetection(detectResults);
+    const temporalContext = buildTemporalDetectionContext(detectResults);
 
-    const [visionResult, detectResult] = await Promise.all([
-      fetchJson('/api/vision', {
-        method: 'POST',
-        body: JSON.stringify({ imageDataUrl }),
-      }).catch(() => ({})),
-      fetchJson('/api/detect', {
-        method: 'POST',
-        body: JSON.stringify({ imageDataUrl }),
-      }).catch(() => ({})),
-    ]);
+    const visionResult = await fetchJson('/api/vision', {
+      method: 'POST',
+      body: JSON.stringify({ imageDataUrl: latestFrame }),
+    }).catch(() => ({}));
 
-    const summary = String(visionResult?.summary || '').trim();
+    const [summary, detectionContext, memoryContext] = [
+      String(visionResult?.summary || '').trim(),
+      buildDetectionContext(detectResult),
+      buildSceneMemoryContext(detectResults, visionResult?.summary),
+    ];
     renderDetectionOverlay(detectResult);
-    const detectionContext = buildDetectionContext(detectResult);
-    const changeContext = describeDetectionChange(detectionContext);
-    return [summary, detectionContext, changeContext].filter(Boolean).join(' ');
+    return [summary, detectionContext, temporalContext, memoryContext].filter(Boolean).join(' ');
   } catch {
     clearDetectionOverlay();
     lastDetectionSummary = '';
+    sceneHistory = [];
     return '';
   }
+}
+
+async function captureObservationFrameSequence(videoEl, count = 3, intervalMs = 180) {
+  if (!videoEl?.videoWidth || !videoEl?.videoHeight) return [];
+  const frames = [];
+  const samples = Math.max(1, Math.min(4, Number(count) || 1));
+  for (let i = 0; i < samples; i += 1) {
+    const frame = captureVideoFrameDataUrl(videoEl);
+    if (frame) frames.push(frame);
+    if (i < samples - 1) {
+      await sleep(Math.max(60, Number(intervalMs) || 180));
+    }
+  }
+  return frames;
+}
+
+function captureVideoFrameDataUrl(videoEl) {
+  if (!videoEl?.videoWidth || !videoEl?.videoHeight) return '';
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.min(640, videoEl.videoWidth);
+  canvas.height = Math.min(360, videoEl.videoHeight);
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return '';
+  ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL('image/jpeg', 0.72);
+}
+
+function buildTemporalDetectionContext(detectResults) {
+  const frames = Array.isArray(detectResults) ? detectResults.filter((r) => r && typeof r === 'object') : [];
+  if (frames.length < 2) return '';
+
+  const faceCounts = frames.map((r) => (Array.isArray(r.faces) ? r.faces.length : 0));
+  const itemSets = frames.map((r) =>
+    new Set((Array.isArray(r.items) ? r.items : []).map((item) => String(item?.label || '').trim().toLowerCase()).filter(Boolean))
+  );
+
+  const firstItems = itemSets[0] || new Set();
+  const lastItems = itemSets[itemSets.length - 1] || new Set();
+  const entered = [...lastItems].filter((name) => !firstItems.has(name)).slice(0, 4);
+  const exited = [...firstItems].filter((name) => !lastItems.has(name)).slice(0, 4);
+  const faceDelta = faceCounts[faceCounts.length - 1] - faceCounts[0];
+  const faceMotion =
+    faceDelta > 0 ? `${faceDelta} additional face(s) entered frame` : faceDelta < 0 ? `${Math.abs(faceDelta)} face(s) left frame` : '';
+
+  const motionParts = [];
+  if (entered.length) motionParts.push(`new in view: ${entered.join(', ')}`);
+  if (exited.length) motionParts.push(`no longer visible: ${exited.join(', ')}`);
+  if (faceMotion) motionParts.push(faceMotion);
+  if (!motionParts.length) return 'Motion scan: scene appears stable across recent live frames.';
+  return `Motion scan: ${motionParts.join(' | ')}.`;
+}
+
+function findLastValidDetection(results) {
+  if (!Array.isArray(results)) return {};
+  for (let i = results.length - 1; i >= 0; i -= 1) {
+    const value = results[i];
+    if (value && typeof value === 'object') return value;
+  }
+  return {};
 }
 
 function shouldUseObservationForMessage(message) {
   const text = String(message || '').toLowerCase();
   if (!text) return false;
   if (strongFocus) return true;
-  return /(see|look|watch|observe|camera|vision|what do you see|what can you see|what are you seeing|what is being seen|around me|terrain|obstacle|object|frame|in frame|added|put|detect|face|person|analyz)/i.test(
-    text
-  );
+  if (matchesObservationIntent(text)) return true;
+  return /\b(terrain|obstacle|object|in frame|face|person|analyz)\b/i.test(text);
 }
 
 function buildDetectionContext(detectResult) {
   const items = Array.isArray(detectResult?.items) ? detectResult.items : [];
   const faces = Array.isArray(detectResult?.faces) ? detectResult.faces : [];
-  if (!items.length && !faces.length) return '';
+  const environmentType = String(detectResult?.environmentType || '').trim();
+  const lighting = String(detectResult?.lighting || '').trim();
+  const activitySummary = String(detectResult?.activitySummary || '').trim();
+  const hazards = Array.isArray(detectResult?.hazards) ? detectResult.hazards.filter(Boolean).slice(0, 4) : [];
+  if (!items.length && !faces.length && !activitySummary && !hazards.length) return '';
 
   const topItems = items
     .filter((item) => item?.label)
     .sort((a, b) => Number(b?.confidence || 0) - Number(a?.confidence || 0))
-    .slice(0, 4)
-    .map((item) => `${item.label}${Number.isFinite(item?.confidence) ? ` (${Math.round(item.confidence * 100)}%)` : ''}`);
+    .slice(0, 5)
+    .map((item) => {
+      const details = [item.category, item.attributes, item.action, item.state, item.color, item.material]
+        .filter(Boolean)
+        .slice(0, 2)
+        .join('; ');
+      return details ? `${item.label} (${details})` : `${item.label}`;
+    });
 
   const faceBits = [];
   if (faces.length) {
     const lookCount = faces.filter((f) => f?.lookingAtCamera).length;
-    faceBits.push(`${faces.length} face${faces.length === 1 ? '' : 's'} detected`);
+    faceBits.push(`I can see ${faces.length} face${faces.length === 1 ? '' : 's'}`);
     if (lookCount > 0) {
-      faceBits.push(`${lookCount} looking toward camera`);
+      faceBits.push(`${lookCount} looking toward the camera`);
     }
     const expression = faces.find((f) => f?.expression)?.expression;
     if (expression) {
-      faceBits.push(`expression: ${expression}`);
+      faceBits.push(`mostly ${expression} expressions`);
+    }
+    const faceDetail = faces
+      .slice(0, 2)
+      .map((face, idx) => {
+        const chunks = [
+          face.personDescription,
+          face.appearance,
+          face.facialHair ? `facial hair: ${face.facialHair}` : '',
+          Array.isArray(face.accessories) && face.accessories.length ? `accessories: ${face.accessories.slice(0, 2).join(', ')}` : '',
+          face.headPose ? `pose: ${face.headPose}` : '',
+          face.visibility ? `visibility: ${face.visibility}` : '',
+          face.action ? `action: ${face.action}` : '',
+        ].filter(Boolean);
+        if (!chunks.length) return '';
+        return `person ${idx + 1}: ${chunks.join('; ')}`;
+      })
+      .filter(Boolean);
+    if (faceDetail.length) {
+      faceBits.push(faceDetail.join(' | '));
     }
   }
 
   const parts = [];
-  if (topItems.length) parts.push(`Detected items: ${topItems.join(', ')}.`);
-  if (faceBits.length) parts.push(`Detected faces: ${faceBits.join(', ')}.`);
+  if (environmentType || lighting) {
+    const envLighting = [environmentType ? `${environmentType} setting` : '', lighting ? `${lighting} lighting` : '']
+      .filter(Boolean)
+      .join(' with ');
+    parts.push(
+      `It looks like a ${envLighting}.`
+    );
+  }
+  if (activitySummary) parts.push(`Right now, ${activitySummary}.`);
+  if (hazards.length) parts.push(`Watch-outs I notice: ${hazards.join(', ')}.`);
+  if (topItems.length) parts.push(`I can make out ${topItems.join(', ')}.`);
+  if (faceBits.length) parts.push(`${faceBits.join('; ')}.`);
   return parts.join(' ');
 }
 
-function describeDetectionChange(currentSummary) {
-  const current = String(currentSummary || '').trim();
-  if (!current) {
-    if (!lastDetectionSummary) return '';
-    const previous = lastDetectionSummary;
-    lastDetectionSummary = '';
-    return `Change update: previously detected scene was "${previous}", but now detections are reduced or unclear.`;
+function buildSceneMemoryContext(detectResults, visionSummary) {
+  const frames = Array.isArray(detectResults) ? detectResults.filter((r) => r && typeof r === 'object') : [];
+  const latest = frames[frames.length - 1] || {};
+  const itemLabels = (Array.isArray(latest.items) ? latest.items : [])
+    .map((item) => String(item?.label || '').trim().toLowerCase())
+    .filter(Boolean)
+    .slice(0, 8);
+  const faceCount = Array.isArray(latest.faces) ? latest.faces.length : 0;
+  const activity = String(latest.activitySummary || '').trim().toLowerCase();
+  const fingerprint = JSON.stringify({
+    itemLabels,
+    faceCount,
+    activity,
+    env: String(latest.environmentType || '').trim().toLowerCase(),
+    lighting: String(latest.lighting || '').trim().toLowerCase(),
+  });
+  const entry = {
+    at: Date.now(),
+    fingerprint,
+    itemLabels,
+    faceCount,
+    summary: String(visionSummary || '').trim().slice(0, 280),
+    activity,
+  };
+  sceneHistory.push(entry);
+  sceneHistory = sceneHistory.slice(-12);
+
+  const previous = sceneHistory.length > 1 ? sceneHistory[sceneHistory.length - 2] : null;
+  if (!previous) {
+    lastDetectionSummary = entry.summary;
+    return 'Scene memory initialized from the current live view.';
   }
-  if (!lastDetectionSummary) {
-    lastDetectionSummary = current;
-    return 'Change update: baseline observation captured.';
+  if (previous.fingerprint === entry.fingerprint) {
+    return 'Scene memory: stable continuity across recent frames.';
   }
-  if (lastDetectionSummary === current) {
-    return 'Change update: no major visual change detected since last check.';
+
+  const entered = entry.itemLabels.filter((label) => !previous.itemLabels.includes(label)).slice(0, 3);
+  const exited = previous.itemLabels.filter((label) => !entry.itemLabels.includes(label)).slice(0, 3);
+  const changes = [];
+  if (entered.length) changes.push(`new objects: ${entered.join(', ')}`);
+  if (exited.length) changes.push(`objects out of frame: ${exited.join(', ')}`);
+  if (entry.faceCount !== previous.faceCount) {
+    changes.push(`face count changed from ${previous.faceCount} to ${entry.faceCount}`);
   }
-  const previous = lastDetectionSummary;
-  lastDetectionSummary = current;
-  return `Change update: scene changed from "${previous}" to "${current}".`;
+  if (entry.activity && previous.activity && entry.activity !== previous.activity) {
+    changes.push(`activity shifted from "${previous.activity}" to "${entry.activity}"`);
+  }
+  if (!changes.length) {
+    return 'Scene memory: subtle movement detected but core layout is consistent.';
+  }
+  return `Scene memory update: ${changes.join(' | ')}.`;
 }
 
 function initDetectionOverlay() {
@@ -1246,6 +1669,7 @@ function initIdleSessionReset() {
 
 function markActivity() {
   lastActivityAt = Date.now();
+  revealFaceUi();
   scheduleIdleReset();
 }
 
@@ -1302,14 +1726,9 @@ function clearChatLogForNewSession() {
 
 function maybeStartFollowupListening(assistantReply) {
   if (!handsFreeFollowups) return;
-  const shouldFollowupQuestion = shouldAutoListenForFollowup(assistantReply);
-  const recentVoiceTurn = Date.now() - lastVoiceTurnAt < 45000;
-  const allowConversationalFollowup = shouldFollowupQuestion && lastInputWasVoice && recentVoiceTurn;
-  if (shouldFollowupQuestion && !isConversationWindowActive()) {
-    openConversationWindow(buildConversationWindowMs(assistantReply));
-  }
-  if (!allowConversationalFollowup) return;
-  if (!isConversationWindowActive() && !shouldFollowupQuestion) return;
+  const recentVoiceTurn = Date.now() - lastVoiceTurnAt < 90000;
+  if (!lastInputWasVoice || !recentVoiceTurn) return;
+  openConversationWindow(buildConversationWindowMs(assistantReply));
   if (isRecording) return;
 
   if (followupTimer) {
@@ -1317,13 +1736,16 @@ function maybeStartFollowupListening(assistantReply) {
     followupTimer = null;
   }
 
-  const delay = buildRelistenDelay();
+  const delay = Math.max(buildRelistenDelay(), assistantSpeechHoldUntil - Date.now() + 180);
   followupTimer = setTimeout(async () => {
     followupTimer = null;
     if (!isConversationWindowActive() || isRecording) return;
     updateVoiceStatus('Conversational listening...');
     setListeningSource('followup');
-    await startVoiceCapture('followup');
+    const started = await startVoiceCapture('followup', { maxCaptureMs: VOICE_FOLLOWUP_CAPTURE_MS });
+    if (!started && isConversationWindowActive()) {
+      scheduleRelistenIfWindow(420);
+    }
   }, delay);
 }
 
@@ -1339,6 +1761,11 @@ function shouldAcceptVoiceTranscript(transcript) {
   const t = String(transcript || '').trim();
   if (!t) return false;
   if (Date.now() < startupMutedUntil) return false;
+  if (isAssistantSpeakingNow()) return false;
+  if (isKnownSttPromptLeak(t)) return false;
+  if (isNearDuplicateVoiceTranscript(t)) return false;
+  if (isLikelyAssistantEcho(t)) return false;
+  if (isLikelyNoiseTranscript(t, activeVoiceCaptureSource)) return false;
   if (isMusicDetectArmed()) return true;
   const onlySymbols = t.replace(/[\p{L}\p{N}]/gu, '').length === t.length;
   if (onlySymbols) return false;
@@ -1346,62 +1773,112 @@ function shouldAcceptVoiceTranscript(transcript) {
   return true;
 }
 
-function initAudioUnlock() {
-  renderVoiceArmOverlay();
-  const unlock = async () => {
-    if (audioUnlocked) return;
-    try {
-      if (audioSyncContext && audioSyncContext.state === 'suspended') {
-        await audioSyncContext.resume();
-      } else {
-        const Ctx = window.AudioContext || window.webkitAudioContext;
-        if (Ctx) {
-          const ctx = new Ctx();
-          const buf = ctx.createBuffer(1, 1, 22050);
-          const src = ctx.createBufferSource();
-          src.buffer = buf;
-          src.connect(ctx.destination);
-          src.start(0);
-          await ctx.resume();
-          await ctx.close();
-        }
-      }
-      audioUnlocked = true;
-      updateVoiceStatus('Audio ready');
-      renderVoiceArmOverlay();
-      primeMediaPermissions();
-      maybeReplayPendingSpeech();
-      detachAudioUnlockHandlers(unlock);
-    } catch {
-      audioUnlocked = false;
-      renderVoiceArmOverlay();
-      updateVoiceStatus('Tap to arm voice');
+function normalizeVoiceText(text) {
+  return String(text || '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function isNearDuplicateVoiceTranscript(transcript) {
+  const normalized = normalizeVoiceText(transcript);
+  if (!normalized) return true;
+  const now = Date.now();
+  const duplicated = normalized === lastVoiceTranscriptNormalized && now - lastVoiceTranscriptAt < 9000;
+  lastVoiceTranscriptNormalized = normalized;
+  lastVoiceTranscriptAt = now;
+  return duplicated;
+}
+
+function isKnownSttPromptLeak(transcript) {
+  const t = normalizeVoiceText(transcript);
+  if (!t) return false;
+  return (
+    t.includes('use plain english text and do not translate to other languages') ||
+    t.includes('transcribe spoken english accurately') ||
+    t.includes('learn english for free') ||
+    t.includes('www engvid com') ||
+    t.includes('engvid com') ||
+    t.includes('engvid')
+  );
+}
+
+function isLikelyAssistantEcho(transcript) {
+  const heard = normalizeVoiceText(transcript);
+  const replied = normalizeVoiceText(lastAssistantReplyText);
+  if (!heard || !replied) return false;
+  if (heard.length < 18) return false;
+  if (replied.includes(heard)) return true;
+  if (heard.includes(replied.slice(0, Math.min(48, replied.length)))) return true;
+  return false;
+}
+
+function isLikelyNoiseTranscript(transcript, source = 'manual') {
+  const normalized = normalizeVoiceText(transcript);
+  if (!normalized) return true;
+  const words = normalized.split(/\s+/).filter(Boolean);
+  if (!words.length) return true;
+
+  if (source !== 'manual') {
+    const allowedShort = new Set(['yes', 'no', 'yeah', 'yep', 'nope', 'stop', 'go']);
+    if (words.length === 1 && !allowedShort.has(words[0])) {
+      return words[0].length < 4;
     }
-  };
-
-  if (voiceArmOverlayEl) {
-    voiceArmOverlayEl.addEventListener('click', () => {
-      unlock().catch(() => {});
-    });
+    if (words.length <= 2 && !containsWakePhrase(normalized)) {
+      const hasVerb = /\b(check|look|scan|tell|show|start|stop|hey|okay|ok)\b/i.test(normalized);
+      if (!hasVerb) return true;
+    }
   }
 
-  if (!audioUnlockHandlerAttached) {
-    window.addEventListener('pointerdown', unlock);
-    window.addEventListener('keydown', unlock);
-    audioUnlockHandlerAttached = true;
+  if (words.length >= 4) {
+    const unique = new Set(words).size;
+    if (unique / words.length < 0.42) return true;
   }
+
+  const letters = normalized.replace(/[^a-z]/gi, '');
+  if (letters.length >= 7) {
+    const vowels = (letters.match(/[aeiou]/gi) || []).length;
+    if (vowels / letters.length < 0.2) return true;
+  }
+
+  return false;
 }
 
-function renderVoiceArmOverlay() {
-  if (!voiceArmOverlayEl) return;
-  voiceArmOverlayEl.classList.toggle('hidden', audioUnlocked);
+function isAssistantSpeakingNow() {
+  if (assistantSpeechActive || Date.now() < assistantSpeechHoldUntil) return true;
+  if (faceEl?.dataset?.state === 'speaking') return true;
+  return false;
 }
 
-function detachAudioUnlockHandlers(unlockFn) {
-  if (!audioUnlockHandlerAttached) return;
-  window.removeEventListener('pointerdown', unlockFn);
-  window.removeEventListener('keydown', unlockFn);
-  audioUnlockHandlerAttached = false;
+async function unlockAudioOutput() {
+  if (audioUnlocked) return true;
+  try {
+    if (audioSyncContext && audioSyncContext.state === 'suspended') {
+      await audioSyncContext.resume();
+    } else {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (Ctx) {
+        const ctx = new Ctx();
+        const buf = ctx.createBuffer(1, 1, 22050);
+        const src = ctx.createBufferSource();
+        src.buffer = buf;
+        src.connect(ctx.destination);
+        src.start(0);
+        await ctx.resume();
+        await ctx.close();
+      }
+    }
+    audioUnlocked = true;
+    openAiTtsBlockedUntil = 0;
+    updateVoiceStatus('Audio ready');
+    primeMediaPermissions();
+    return true;
+  } catch {
+    audioUnlocked = false;
+    updateVoiceStatus('Audio still locked by browser');
+    return false;
+  }
 }
 
 function isAudioPermissionError(error) {
@@ -1414,28 +1891,13 @@ function isAudioPermissionError(error) {
   );
 }
 
-function queuePendingSpeechReplay(text) {
-  pendingSpokenReply = String(text || '').trim();
-}
-
-async function maybeReplayPendingSpeech() {
-  if (!audioUnlocked || replayingPendingSpeech) return;
-  if (!pendingSpokenReply) return;
-  const replayText = pendingSpokenReply;
-  pendingSpokenReply = '';
-  replayingPendingSpeech = true;
-  const previousState = faceEl?.dataset?.state || 'idle';
-
-  try {
-    setAvatarState('speaking');
-    await speakWithOpenAi(replayText);
-  } catch (error) {
-    appendMessage('system', `Replay voice error: ${error?.message || 'unknown'}`);
-  } finally {
-    replayingPendingSpeech = false;
-    setAvatarState(previousState === 'speaking' ? 'idle' : previousState);
-    updateVoiceStatus('Voice idle');
-  }
+function maybeShowOpenAiVoiceUnlockNotice() {
+  if (openAiVoiceUnlockNoticeShown) return;
+  openAiVoiceUnlockNoticeShown = true;
+  appendMessage(
+    'system',
+    'OpenAI voice is locked by browser autoplay policy. Click Start Listening once to unlock ChatGPT voice.'
+  );
 }
 
 function startMicSilenceMonitor() {
@@ -1454,6 +1916,10 @@ function startMicSilenceMonitor() {
   const startedAt = Date.now();
   let lastVoiceAt = startedAt;
   let heardVoice = false;
+  const dynamicThreshold = Math.max(
+    VOICE_ACTIVITY_RMS_THRESHOLD,
+    micNoiseFloorRms > 0 ? micNoiseFloorRms * VOICE_ACTIVITY_DYNAMIC_MULTIPLIER : 0
+  );
 
   micMonitorTimer = setInterval(() => {
     if (!isRecording || !micMonitorAnalyser) return;
@@ -1466,7 +1932,7 @@ function startMicSilenceMonitor() {
     const rms = Math.sqrt(sum / data.length);
     const now = Date.now();
 
-    if (rms > 0.018) {
+    if (rms > dynamicThreshold) {
       heardVoice = true;
       lastVoiceAt = now;
     }
@@ -1524,7 +1990,8 @@ function initWakeWord() {
       if (containsWakePhrase(transcript)) {
         updateVoiceStatus('Wake phrase detected');
         setListeningSource('wake');
-        if (!isRecording) {
+        if (!isRecording && !isAssistantSpeakingNow()) {
+          await unlockAudioOutput();
           await startVoiceCapture('wake');
         }
       }
@@ -1576,7 +2043,7 @@ function startWakeFallbackLoop() {
 
   wakeFallbackTimer = setTimeout(async () => {
     wakeFallbackTimer = null;
-    if (wakeSuppressed || isRecording || assistantBusy || wakeFallbackBusy) {
+    if (wakeSuppressed || isRecording || assistantBusy || wakeFallbackBusy || isAssistantSpeakingNow()) {
       startWakeFallbackLoop();
       return;
     }
@@ -1584,9 +2051,10 @@ function startWakeFallbackLoop() {
     wakeFallbackBusy = true;
     try {
       const heardWake = await detectWakePhraseViaStt();
-      if (heardWake && !isRecording) {
+      if (heardWake && !isRecording && !isAssistantSpeakingNow()) {
         updateVoiceStatus('Wake phrase detected');
         setListeningSource('wake');
+        await unlockAudioOutput();
         await startVoiceCapture('wake');
       }
     } catch {
@@ -1703,7 +2171,7 @@ function startWakeWordListening() {
     return;
   }
   stopWakeFallbackLoop();
-  if (!wakeEnabled || !wakeRecognition || wakeRunning || isRecording) return;
+  if (!wakeEnabled || !wakeRecognition || wakeRunning || isRecording || isAssistantSpeakingNow()) return;
   try {
     wakeRecognition.start();
     wakeRunning = true;
@@ -1785,7 +2253,10 @@ function scheduleRelistenIfWindow(delayMs = 240) {
     if (!isConversationWindowActive() || isRecording) return;
     updateVoiceStatus('Conversational listening...');
     setListeningSource('followup');
-    await startVoiceCapture('followup');
+    const started = await startVoiceCapture('followup', { maxCaptureMs: VOICE_FOLLOWUP_CAPTURE_MS });
+    if (!started && isConversationWindowActive()) {
+      scheduleRelistenIfWindow(420);
+    }
   }, delayMs);
 }
 
@@ -1823,41 +2294,51 @@ function syncExpressionForAvatarState(state) {
 function inferContextExpression(state) {
   let energy = 0.42;
   let expression = 'neutral';
+  let preset = 'friendly';
 
   if (currentMood === 'aggressive') {
     expression = 'intense';
     energy = 0.86;
+    preset = 'alert';
   } else if (currentMood === 'cautious') {
     expression = 'engaged';
     energy = 0.58;
+    preset = 'focused';
   } else if (currentMood === 'sick') {
     expression = 'gentle';
     energy = 0.22;
+    preset = 'friendly';
   }
 
   if (currentMode === 'focus' || currentMode === 'race') {
     expression = 'intense';
     energy = Math.max(energy, 0.8);
+    preset = 'focused';
   } else if (currentMode === 'training' || currentMode === 'safety') {
     expression = expression === 'gentle' ? 'gentle' : 'engaged';
     energy = Math.max(energy, 0.55);
+    if (preset !== 'alert') preset = 'focused';
   }
 
   if (state === 'listening') {
     expression = expression === 'intense' ? 'intense' : 'engaged';
     energy = Math.max(energy, 0.62);
+    if (preset === 'friendly') preset = 'curious';
   } else if (state === 'thinking') {
     expression = expression === 'gentle' ? 'neutral' : expression;
     energy = Math.max(energy, 0.5);
+    if (preset !== 'alert') preset = 'focused';
   } else if (state === 'alert') {
     expression = 'intense';
     energy = 0.95;
+    preset = 'alert';
   } else if (state === 'idle' && currentMood === 'calm' && currentMode === 'general') {
     expression = 'gentle';
     energy = 0.28;
+    preset = 'friendly';
   }
 
-  return { expression, energy };
+  return { expression, energy, preset };
 }
 
 function inferReplyExpression(replyText) {
@@ -1869,21 +2350,26 @@ function inferReplyExpression(replyText) {
 
   let energy = 0.48;
   let expression = 'neutral';
+  let preset = 'friendly';
 
   if (/\b(urgent|danger|warning|immediately|critical|stop|alert)\b/i.test(lower)) {
     expression = 'intense';
     energy = 0.9;
+    preset = 'alert';
   } else if (/\b(great|awesome|nice|excellent|love|perfect|fantastic|excited)\b/i.test(lower)) {
     expression = 'engaged';
     energy = 0.72;
+    preset = 'friendly';
   } else if (/\b(sorry|gentle|reassure|understand|take your time|no worries)\b/i.test(lower)) {
     expression = 'gentle';
     energy = 0.26;
+    preset = 'friendly';
   }
 
   if (questions > 0) {
     expression = expression === 'gentle' ? 'neutral' : expression;
     energy += 0.08;
+    if (preset !== 'alert') preset = 'curious';
   }
   if (exclamations > 0) {
     energy += Math.min(0.2, exclamations * 0.08);
@@ -1896,15 +2382,18 @@ function inferReplyExpression(replyText) {
   if (currentMood === 'aggressive' || currentMode === 'race') {
     expression = 'intense';
     energy = Math.max(energy, 0.82);
+    preset = 'alert';
   } else if (currentMood === 'sick') {
     expression = 'gentle';
     energy = Math.min(energy, 0.34);
+    preset = 'friendly';
   } else if (currentMode === 'focus') {
     expression = expression === 'gentle' ? 'neutral' : expression;
     energy = Math.max(energy, 0.64);
+    if (preset !== 'alert') preset = 'focused';
   }
 
-  return { expression, energy: clampExpressionEnergy(energy) };
+  return { expression, energy: clampExpressionEnergy(energy), preset };
 }
 
 function applyExpressionProfile(profile) {
@@ -1917,9 +2406,22 @@ function applyExpressionProfile(profile) {
     ? profile.expression
     : 'neutral';
   const energy = clampExpressionEnergy(profile?.energy);
+  const preset = ['friendly', 'focused', 'curious', 'alert'].includes(profile?.preset)
+    ? profile.preset
+    : inferExpressionPresetForContext(faceEl.dataset.state || 'idle');
   faceEl.dataset.expression = expression;
+  faceEl.dataset.expressionPreset = preset;
   faceEl.style.setProperty('--expression-energy', String(energy));
   triggerMicroExpressionTransition(prevExpression, prevEnergy, expression, energy, faceEl.dataset.state || 'idle');
+}
+
+function inferExpressionPresetForContext(state) {
+  if (state === 'alert') return 'alert';
+  if (state === 'thinking') return 'focused';
+  if (state === 'listening') return 'curious';
+  if (currentMode === 'focus' || currentMode === 'race') return 'focused';
+  if (currentMood === 'aggressive') return 'alert';
+  return 'friendly';
 }
 
 function clampExpressionEnergy(value) {
@@ -1961,9 +2463,8 @@ function triggerMicroExpressionTransition(fromExpr, fromEnergy, toExpr, toEnergy
 }
 
 function buildConversationWindowMs(reply) {
-  const text = String(reply || '');
-  if (shouldAutoListenForFollowup(text)) return 45000;
-  return CONVERSATION_WINDOW_MS;
+  void reply;
+  return Math.max(CONVERSATION_WINDOW_MS, VOICE_FOLLOWUP_CAPTURE_MS + 4000);
 }
 
 function escapeHtml(str) {
@@ -2067,6 +2568,14 @@ function initKioskMode() {
   const params = new URLSearchParams(window.location.search);
   const kiosk = params.get('kiosk') === '1';
   const faceOnly = params.get('face') === '1';
+  const highContrast = params.get('contrast') === 'high' || params.get('a11y') === '1';
+  const sizePreset = String(params.get('size') || '').toLowerCase();
+  if (highContrast) {
+    document.body.classList.add('high-contrast');
+  }
+  if (sizePreset === 'xl' || sizePreset === 'large') {
+    document.body.classList.add('size-xl');
+  }
   if (!kiosk) return;
 
   document.body.classList.add('kiosk');
@@ -2090,9 +2599,9 @@ function initKioskMode() {
 function initFaceTapToTalk() {
   if (!faceEl) return;
   faceEl.addEventListener('click', async (event) => {
-    if (!faceOnlyMode) return;
     const target = event.target;
     if (target && typeof target.closest === 'function' && target.closest('.exit-shell-btn')) return;
+    await unlockAudioOutput();
     if (isRecording) {
       stopVoiceCapture();
       return;
@@ -2107,7 +2616,7 @@ function scheduleAutoListen(delayMs = 900) {
   if (autoListenTimer) clearTimeout(autoListenTimer);
   autoListenTimer = setTimeout(async () => {
     autoListenTimer = null;
-    if (!autoListenEnabled || isRecording || assistantBusy) {
+    if (!autoListenEnabled || isRecording || assistantBusy || isAssistantSpeakingNow()) {
       scheduleAutoListen(900);
       return;
     }

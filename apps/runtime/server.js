@@ -2,22 +2,39 @@ import { createServer } from 'node:http';
 import { promises as fs, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { matchesObservationIntent } from '../shared/observation-intent.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..', '..');
 const uiDir = path.join(rootDir, 'apps', 'ui');
+const sharedDir = path.join(rootDir, 'apps', 'shared');
 const dataFile = path.join(rootDir, 'data', 'sessions.json');
 const memoryFile = path.join(rootDir, 'data', 'memory.json');
+const missionPackFile = path.join(rootDir, 'data', 'mission_packs.json');
 
 loadDotEnv(path.join(rootDir, '.env'));
 
 const PORT = Number(process.env.PORT || 8787);
 const AI_PROVIDER = String(process.env.AI_PROVIDER || 'auto').trim().toLowerCase();
+const AI_ROUTING_POLICY = String(process.env.AI_ROUTING_POLICY || 'cloud_first').trim().toLowerCase();
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 const OLLAMA_BASE_URL = (process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434').replace(/\/+$/g, '');
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llama3.1:8b';
+const OLLAMA_MODEL_GENERAL = process.env.OLLAMA_MODEL_GENERAL || OLLAMA_MODEL;
+const OLLAMA_MODEL_TRAINING = process.env.OLLAMA_MODEL_TRAINING || OLLAMA_MODEL_GENERAL;
+const OLLAMA_MODEL_SAFETY = process.env.OLLAMA_MODEL_SAFETY || OLLAMA_MODEL_GENERAL;
+const OLLAMA_MODEL_RACE = process.env.OLLAMA_MODEL_RACE || OLLAMA_MODEL_GENERAL;
+const OLLAMA_MODEL_FOCUS = process.env.OLLAMA_MODEL_FOCUS || OLLAMA_MODEL_GENERAL;
+const OPENAI_MODEL_GENERAL = process.env.OPENAI_MODEL_GENERAL || OPENAI_MODEL;
+const OPENAI_MODEL_TRAINING = process.env.OPENAI_MODEL_TRAINING || OPENAI_MODEL_GENERAL;
+const OPENAI_MODEL_SAFETY = process.env.OPENAI_MODEL_SAFETY || OPENAI_MODEL_GENERAL;
+const OPENAI_MODEL_RACE = process.env.OPENAI_MODEL_RACE || OPENAI_MODEL_GENERAL;
+const OPENAI_MODEL_FOCUS = process.env.OPENAI_MODEL_FOCUS || OPENAI_MODEL_GENERAL;
+const LIVE_CACHE_ENABLED = String(process.env.LIVE_CACHE_ENABLED || '1') !== '0';
+const LIVE_CACHE_MAX_ENTRIES = Math.max(50, Number(process.env.LIVE_CACHE_MAX_ENTRIES || 600));
+const LIVE_CACHE_TTL_MS = Math.max(2000, Number(process.env.LIVE_CACHE_TTL_MS || 120000));
 const OPENAI_TTS_MODEL = process.env.OPENAI_TTS_MODEL || 'gpt-4o-mini-tts';
 const OPENAI_TTS_PROFILE = String(process.env.OPENAI_TTS_PROFILE || 'companion').trim().toLowerCase();
 const OPENAI_TTS_VOICE = process.env.OPENAI_TTS_VOICE || 'shimmer';
@@ -62,11 +79,13 @@ const TTS_PROFILES = {
 
 const sessions = await loadSessions();
 const memoryStore = await loadMemoryStore();
+const missionPacks = await loadMissionPacks();
 const motionIntentState = {
   latest: null,
   history: [],
   updatedAt: null,
 };
+const liveCache = new Map();
 
 const COACH_SYSTEM_PROMPT = [
   'You are S.C.O.U.T. (Smart Companion for Observation, Understanding, and Training).',
@@ -97,15 +116,33 @@ const server = createServer(async (req, res) => {
     }
 
     if (req.method === 'GET' && url.pathname === '/api/config') {
-      const activeProvider = resolveChatProvider();
+      const activeProvider = resolveChatProvider('general');
       const ttsDefaults = resolveTtsSettings();
       return sendJson(res, 200, {
         provider: activeProvider,
+        routingPolicy: AI_ROUTING_POLICY,
         openaiConfigured: Boolean(OPENAI_API_KEY),
         ollamaConfigured: Boolean(OLLAMA_MODEL),
         ollamaBaseUrl: OLLAMA_BASE_URL,
         ollamaModel: OLLAMA_MODEL,
         model: OPENAI_MODEL,
+        models: {
+          openai: {
+            general: OPENAI_MODEL_GENERAL,
+            training: OPENAI_MODEL_TRAINING,
+            safety: OPENAI_MODEL_SAFETY,
+            race: OPENAI_MODEL_RACE,
+            focus: OPENAI_MODEL_FOCUS,
+          },
+          ollama: {
+            general: OLLAMA_MODEL_GENERAL,
+            training: OLLAMA_MODEL_TRAINING,
+            safety: OLLAMA_MODEL_SAFETY,
+            race: OLLAMA_MODEL_RACE,
+            focus: OLLAMA_MODEL_FOCUS,
+          },
+        },
+        missionModes: Object.keys(missionPacks || {}),
         memoryEnabled: true,
         transcribeModel: OPENAI_TRANSCRIBE_MODEL,
         visionModel: OPENAI_VISION_MODEL,
@@ -470,6 +507,7 @@ const server = createServer(async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/api/detect') {
       const body = await readJson(req);
       const imageDataUrl = String(body?.imageDataUrl || '');
+      const sensorContext = body?.sensorContext && typeof body.sensorContext === 'object' ? body.sensorContext : null;
       if (!imageDataUrl) {
         return sendJson(res, 400, { error: 'imageDataUrl is required' });
       }
@@ -477,7 +515,7 @@ const server = createServer(async (req, res) => {
         return sendJson(res, 400, { error: 'OpenAI API key is not configured' });
       }
 
-      const detection = await detectFacesAndItems(imageDataUrl);
+      const detection = await detectFacesAndItems(imageDataUrl, sensorContext);
       return sendJson(res, 200, detection);
     }
 
@@ -527,6 +565,14 @@ const server = createServer(async (req, res) => {
       return await sendStaticFile(path.join(uiDir, 'styles.css'), res, 'text/css; charset=utf-8');
     }
 
+    if (req.method === 'GET' && url.pathname === '/shared/observation-intent.js') {
+      return await sendStaticFile(
+        path.join(sharedDir, 'observation-intent.js'),
+        res,
+        'text/javascript; charset=utf-8'
+      );
+    }
+
     return sendJson(res, 404, { error: 'Not found' });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unexpected error';
@@ -567,14 +613,15 @@ async function generateCoachReply(session, userMessage, strongFocus, observation
   const directLiveAnswer = shouldForceDirectLiveAnswer(userMessage, toolContext);
   const memoryContext = memorySummaryText();
   const observationContext = String(observation || '').trim();
+  const observationIntent = isObservationQuery(userMessage);
+  const requestedMode = inferRequestedMode(userMessage, strongFocus, toolContext);
+  const providerOrder = resolveProviderOrder(requestedMode);
 
-  const provider = resolveChatProvider();
-
-  if (provider === 'none') {
+  if (!providerOrder.length) {
     if (toolContext?.directAnswer) {
       return {
         text: toolContext.directAnswer,
-        state: inferStateFromContext(userMessage, toolContext, strongFocus),
+        state: inferStateFromContext(userMessage, toolContext, strongFocus, requestedMode),
         engine: {
           provider: 'local-tools',
           model: null,
@@ -585,12 +632,12 @@ async function generateCoachReply(session, userMessage, strongFocus, observation
 
     return {
       text: [
-        'OpenAI API key is not configured yet, so I am using local fallback mode.',
-        `Mode: ${strongFocus ? 'focus' : 'general'}.`,
+        'No LLM provider is currently reachable, so I am using local fallback mode.',
+        `Mode: ${requestedMode}.`,
         `You said: "${userMessage}".`,
         'Set OPENAI_API_KEY or OLLAMA_MODEL/OLLAMA_BASE_URL to enable full S.C.O.U.T. intelligence.',
       ].join(' '),
-      state: inferStateFromContext(userMessage, toolContext, strongFocus),
+      state: inferStateFromContext(userMessage, toolContext, strongFocus, requestedMode),
       engine: {
         provider: 'no-llm-fallback',
         model: null,
@@ -607,7 +654,7 @@ async function generateCoachReply(session, userMessage, strongFocus, observation
   if (directLiveAnswer) {
     return {
       text: directLiveAnswer,
-      state: inferStateFromContext(userMessage, toolContext, strongFocus),
+      state: inferStateFromContext(userMessage, toolContext, strongFocus, requestedMode),
       engine: {
         provider: 'local-tools-priority',
         model: null,
@@ -616,13 +663,13 @@ async function generateCoachReply(session, userMessage, strongFocus, observation
     };
   }
 
-  if (observationContext && isObservationQuery(userMessage)) {
+  if (observationIntent) {
     return {
       text: buildObservationReply(observationContext),
-      state: inferStateFromContext(userMessage, toolContext, strongFocus),
+      state: inferStateFromContext(userMessage, toolContext, strongFocus, requestedMode),
       engine: {
-        provider: 'vision-observation-priority',
-        model: OPENAI_VISION_MODEL,
+        provider: observationContext ? 'vision-observation-priority' : 'vision-observation-unavailable',
+        model: observationContext ? OPENAI_VISION_MODEL : null,
       },
       toolContext,
     };
@@ -631,7 +678,7 @@ async function generateCoachReply(session, userMessage, strongFocus, observation
   if (toolContext?.liveIntent && !toolContext.directAnswer) {
     return {
       text: buildLiveLookupUnavailableReply(toolContext),
-      state: inferStateFromContext(userMessage, toolContext, strongFocus),
+      state: inferStateFromContext(userMessage, toolContext, strongFocus, requestedMode),
       engine: {
         provider: 'local-tools-unavailable',
         model: null,
@@ -640,20 +687,87 @@ async function generateCoachReply(session, userMessage, strongFocus, observation
     };
   }
 
+  const failures = [];
+  for (const provider of providerOrder) {
+    if (provider === 'ollama') {
+      const model = resolveModelForProvider('ollama', requestedMode);
+      const reply = await generateCoachReplyWithOllama(
+        session,
+        userMessage,
+        strongFocus,
+        observation,
+        toolContext,
+        requestedMode,
+        model
+      );
+      if (!isEngineFailure(reply?.engine?.provider)) return reply;
+      failures.push(reply?.engine?.provider || 'ollama-error');
+      continue;
+    }
+
+    if (provider === 'openai') {
+      const model = resolveModelForProvider('openai', requestedMode);
+      const reply = await generateCoachReplyWithOpenAI(
+        session,
+        userMessage,
+        strongFocus,
+        observation,
+        toolContext,
+        requestedMode,
+        model
+      );
+      if (!isEngineFailure(reply?.engine?.provider)) return reply;
+      failures.push(reply?.engine?.provider || 'openai-error');
+      continue;
+    }
+  }
+
+  const fallbackState = inferStateFromContext(userMessage, toolContext, strongFocus, requestedMode);
+  return {
+    text:
+      'All AI engines are currently unavailable. I can still help with live weather/time/date/location lookups and local tool guidance while we retry the model path.',
+    state: fallbackState,
+    engine: {
+      provider: `multi-engine-error:${failures.join('|') || 'unknown'}`,
+      model: null,
+    },
+    toolContext,
+  };
+}
+
+async function generateCoachReplyWithOpenAI(
+  session,
+  userMessage,
+  strongFocus,
+  observation,
+  toolContext,
+  requestedMode,
+  model
+) {
+  const memoryContext = memorySummaryText();
+  const observationContext = String(observation || '').trim();
+  const recentMessages = session.messages.slice(-8).map((msg) => ({
+    role: msg.role,
+    content: compactSentence(msg.content),
+  }));
   const payload = {
-    model: OPENAI_MODEL,
+    model,
     messages: [
       {
         role: 'system',
         content: [
           COACH_SYSTEM_PROMPT,
+          buildMissionPackPrompt(requestedMode),
           strongFocus
             ? 'Strong Focus is ON. Prioritize deep technical reasoning, precise terminology, step-by-step analysis, and concise high-signal output.'
             : 'Strong Focus is OFF. Balance companion personality with practical guidance.',
           'Always decide and return the best current mood and mode.',
-          'If live tool context is present, use it directly and do not claim inability to provide time/weather.',
+          'If live tool context is present, use it directly and do not claim inability to provide time/weather/timezone/date.',
           'If live camera observation context is present, do not claim inability to observe or analyze images.',
-          'Keep responses brief by default (about 25-70 words) unless explicitly asked for detailed output.',
+          'Voice persona: calm teammate standing beside the user, clear and plainspoken.',
+          'Use natural contractions and conversational phrasing.',
+          'Avoid labels/headings like "summary", "analysis", "scene details", or "detected".',
+          'Keep responses brief by default (about 12-45 words) unless explicitly asked for detailed output.',
           'Return only valid JSON with keys: reply, mood, mode.',
           'mood must be one of: calm, aggressive, sick, cautious.',
           'mode must be one of: general, training, safety, race, focus.',
@@ -683,11 +797,6 @@ async function generateCoachReply(session, userMessage, strongFocus, observation
       },
     },
   };
-
-  if (provider === 'ollama') {
-    return await generateCoachReplyWithOllama(session, userMessage, strongFocus, observation, toolContext);
-  }
-
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -696,15 +805,14 @@ async function generateCoachReply(session, userMessage, strongFocus, observation
     },
     body: JSON.stringify(payload),
   });
-
   if (!response.ok) {
     const errorText = await response.text();
     return {
-      text: `I hit an API issue (${response.status}). I can still guide locally while we fix it. Details: ${trimError(errorText)}`,
-      state: inferStateFromContext(userMessage, toolContext, strongFocus),
+      text: `I hit an OpenAI API issue (${response.status}). I can still guide locally while we fix it. Details: ${trimError(errorText)}`,
+      state: inferStateFromContext(userMessage, toolContext, strongFocus, requestedMode),
       engine: {
         provider: 'openai-error',
-        model: OPENAI_MODEL,
+        model,
       },
       toolContext,
     };
@@ -716,14 +824,14 @@ async function generateCoachReply(session, userMessage, strongFocus, observation
 
   if (parsed?.reply) {
     return {
-      text: parsed.reply.trim(),
+      text: humanizeCoachReply(parsed.reply),
       state: {
         mood: parsed.mood,
         mode: parsed.mode,
       },
       engine: {
         provider: 'openai',
-        model: OPENAI_MODEL,
+        model,
       },
       toolContext,
     };
@@ -732,18 +840,26 @@ async function generateCoachReply(session, userMessage, strongFocus, observation
   return {
     text:
       typeof raw === 'string' && raw.trim()
-        ? raw.trim()
+        ? humanizeCoachReply(raw)
         : 'I did not receive a complete model response, but I am still online and ready for the next instruction.',
-    state: inferStateFromContext(userMessage, toolContext, strongFocus),
+    state: inferStateFromContext(userMessage, toolContext, strongFocus, requestedMode),
     engine: {
       provider: 'openai-empty',
-      model: OPENAI_MODEL,
+      model,
     },
     toolContext,
   };
 }
 
-async function generateCoachReplyWithOllama(session, userMessage, strongFocus, observation, toolContext) {
+async function generateCoachReplyWithOllama(
+  session,
+  userMessage,
+  strongFocus,
+  observation,
+  toolContext,
+  requestedMode,
+  model
+) {
   const memoryContext = memorySummaryText();
   const observationContext = String(observation || '').trim();
   const recentMessages = session.messages.slice(-8).map((msg) => ({
@@ -756,10 +872,14 @@ async function generateCoachReplyWithOllama(session, userMessage, strongFocus, o
       role: 'system',
       content: [
         COACH_SYSTEM_PROMPT,
+        buildMissionPackPrompt(requestedMode),
         strongFocus
           ? 'Strong Focus is ON. Use precise technical reasoning.'
           : 'Strong Focus is OFF. Balance companion personality with practical guidance.',
-        'Keep responses brief by default (about 25-70 words).',
+        'Voice persona: calm teammate standing beside the user, clear and plainspoken.',
+        'Use natural contractions and conversational phrasing.',
+        'Avoid labels/headings like "summary", "analysis", "scene details", or "detected".',
+        'Keep responses brief by default (about 12-45 words).',
         'If live tool context exists, use it directly and do not claim inability to access real-time information.',
         'Return valid JSON only with keys: reply, mood, mode.',
       ].join(' '),
@@ -772,13 +892,13 @@ async function generateCoachReplyWithOllama(session, userMessage, strongFocus, o
 
   try {
     const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        model: OLLAMA_MODEL,
-        stream: false,
-        format: 'json',
-        options: { temperature: 0.35 },
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          model,
+          stream: false,
+          format: 'json',
+          options: { temperature: 0.35 },
         messages,
       }),
     });
@@ -793,23 +913,23 @@ async function generateCoachReplyWithOllama(session, userMessage, strongFocus, o
     if (!parsed?.reply) {
       return {
         text: raw || 'Ollama returned an empty response.',
-        state: inferStateFromContext(userMessage, toolContext, strongFocus),
-        engine: { provider: 'ollama-empty', model: OLLAMA_MODEL },
+        state: inferStateFromContext(userMessage, toolContext, strongFocus, requestedMode),
+        engine: { provider: 'ollama-empty', model },
         toolContext,
       };
     }
 
     return {
-      text: parsed.reply.trim(),
+      text: humanizeCoachReply(parsed.reply),
       state: { mood: parsed.mood, mode: parsed.mode },
-      engine: { provider: 'ollama', model: OLLAMA_MODEL },
+      engine: { provider: 'ollama', model },
       toolContext,
     };
   } catch (error) {
     return {
       text: `Ollama is configured but unavailable right now (${error.message}). I can still use live tools and continue once Ollama is online.`,
-      state: inferStateFromContext(userMessage, toolContext, strongFocus),
-      engine: { provider: 'ollama-error', model: OLLAMA_MODEL },
+      state: inferStateFromContext(userMessage, toolContext, strongFocus, requestedMode),
+      engine: { provider: 'ollama-error', model },
       toolContext,
     };
   }
@@ -831,7 +951,7 @@ function tryParseJsonReply(raw) {
   }
 }
 
-function inferStateFromContext(userMessage, toolContext, strongFocus) {
+function inferStateFromContext(userMessage, toolContext, strongFocus, requestedMode = null) {
   const text = String(userMessage || '').toLowerCase();
   const tools = toolContext?.toolsUsed || [];
 
@@ -841,7 +961,8 @@ function inferStateFromContext(userMessage, toolContext, strongFocus) {
   else if (/(warning|caution|careful|risk|unsafe)/i.test(text)) mood = 'cautious';
 
   let mode = 'general';
-  if (strongFocus) mode = 'focus';
+  if (requestedMode && ['general', 'training', 'safety', 'race', 'focus'].includes(requestedMode)) mode = requestedMode;
+  else if (strongFocus) mode = 'focus';
   else if (/(train|teach|learn|practice|drill)/i.test(text)) mode = 'training';
   else if (/(race|lap|split|fastest|speed run)/i.test(text)) mode = 'race';
   else if (/(safe|safety|hazard|warning|checklist)/i.test(text)) mode = 'safety';
@@ -850,21 +971,86 @@ function inferStateFromContext(userMessage, toolContext, strongFocus) {
   return { mood, mode };
 }
 
+function inferRequestedMode(userMessage, strongFocus, toolContext) {
+  if (strongFocus) return 'focus';
+  const text = String(userMessage || '').toLowerCase();
+  if (/\b(safety mode|safety first|hazard|unsafe|emergency|risk assessment|risk)\b/.test(text)) return 'safety';
+  if (/\b(race mode|racing|lap time|split time|overtake|aggressive line)\b/.test(text)) return 'race';
+  if (/\b(training mode|coach me|teach me|practice|drill|lesson|learn)\b/.test(text)) return 'training';
+  if (toolContext?.primaryIntent === 'directions') return 'safety';
+  return 'general';
+}
+
+function resolveModelForProvider(provider, mode = 'general') {
+  if (provider === 'ollama') {
+    if (mode === 'safety') return OLLAMA_MODEL_SAFETY;
+    if (mode === 'training') return OLLAMA_MODEL_TRAINING;
+    if (mode === 'race') return OLLAMA_MODEL_RACE;
+    if (mode === 'focus') return OLLAMA_MODEL_FOCUS;
+    return OLLAMA_MODEL_GENERAL;
+  }
+  if (mode === 'safety') return OPENAI_MODEL_SAFETY;
+  if (mode === 'training') return OPENAI_MODEL_TRAINING;
+  if (mode === 'race') return OPENAI_MODEL_RACE;
+  if (mode === 'focus') return OPENAI_MODEL_FOCUS;
+  return OPENAI_MODEL_GENERAL;
+}
+
+function resolveProviderOrder(mode = 'general') {
+  const wantOllama = AI_PROVIDER === 'ollama';
+  const wantOpenAI = AI_PROVIDER === 'openai';
+  const openAIReady = Boolean(OPENAI_API_KEY);
+  const ollamaReady = Boolean(OLLAMA_MODEL);
+  if (wantOpenAI) return openAIReady ? ['openai'] : [];
+  if (wantOllama) return ollamaReady ? ['ollama'] : [];
+
+  const localFirst = AI_ROUTING_POLICY !== 'cloud_first';
+  if (AI_ROUTING_POLICY === 'mode_aware') {
+    const cloudPreferredModes = new Set(['focus', 'race']);
+    const modeCloudFirst = cloudPreferredModes.has(mode);
+    if (modeCloudFirst) {
+      return [openAIReady ? 'openai' : null, ollamaReady ? 'ollama' : null].filter(Boolean);
+    }
+    return [ollamaReady ? 'ollama' : null, openAIReady ? 'openai' : null].filter(Boolean);
+  }
+
+  if (localFirst) {
+    return [ollamaReady ? 'ollama' : null, openAIReady ? 'openai' : null].filter(Boolean);
+  }
+  return [openAIReady ? 'openai' : null, ollamaReady ? 'ollama' : null].filter(Boolean);
+}
+
+function buildMissionPackPrompt(mode = 'general') {
+  const pack = missionPacks?.[mode] || missionPacks?.general;
+  if (!pack) return '';
+  const priorities = Array.isArray(pack.priorities) ? pack.priorities.join(', ') : '';
+  const style = Array.isArray(pack.styleRules) ? pack.styleRules.join(' ') : '';
+  return `Mission pack (${mode}): ${pack.summary || ''} Priorities: ${priorities}. Style rules: ${style}.`;
+}
+
+function isEngineFailure(providerName) {
+  const name = String(providerName || '').toLowerCase();
+  return name.endsWith('-error');
+}
+
 async function buildLiveContext(userMessage, session) {
   const text = String(userMessage || '').trim();
   if (!text) return null;
   const lowered = text.toLowerCase();
   const locationHint = detectKnownLocationHint(lowered);
+  const profileLocation = cleanLocationToken(memoryStore?.profile?.location || '');
   const inheritedIntent = inferInheritedIntentFromSession(session, text);
   const intents = detectLiveIntentKinds(text, inheritedIntent);
-  const genericLocation = locationHint || extractGenericLocation(text);
+  const genericLocation = locationHint || extractGenericLocation(text) || profileLocation;
 
   const contexts = [];
   const toolsUsed = new Set();
   const directAnswers = [];
   let liveFailure = null;
 
-  const weatherLocation = intents.weather ? locationHint || extractWeatherLocation(text) || genericLocation : extractWeatherLocation(text);
+  const weatherLocation = intents.weather
+    ? locationHint || extractWeatherLocation(text) || genericLocation
+    : extractWeatherLocation(text);
   if (weatherLocation) {
     const weather = await getWeatherForLocation(normalizeLocationName(weatherLocation));
     if (weather) {
@@ -872,15 +1058,15 @@ async function buildLiveContext(userMessage, session) {
         [
           'Live weather tool data is available for this query.',
           `Location: ${weather.name}`,
-          `Local time: ${weather.localTime}`,
-          `Conditions: ${weather.description}, ${weather.temperatureC}C (feels like ${weather.feelsLikeC}C), humidity ${weather.humidityPct}%, wind ${weather.windKph} km/h.`,
+          `Local time: ${weather.localTime} (${weather.timezone})`,
+          `Conditions: ${weather.description}, ${formatTempF(weather.temperatureF)}°F (feels like ${formatTempF(weather.feelsLikeF)}°F), humidity ${weather.humidityPct}%, wind ${formatSpeedMph(weather.windMph)} mph.`,
           `Forecast: ${weather.forecastSummary}`,
         ].join(' ')
       );
       directAnswers.push(
         {
           type: 'weather',
-          text: `${weather.scopePrefix} in ${weather.name}: ${weather.description}, ${weather.temperatureC}C (feels like ${weather.feelsLikeC}C), humidity ${weather.humidityPct}%, wind ${weather.windKph} km/h. ${weather.forecastSummary} Local time there is ${weather.localTime}.`,
+          text: `${weather.scopePrefix} in ${weather.name}: ${weather.description}, ${formatTempF(weather.temperatureF)}°F (feels like ${formatTempF(weather.feelsLikeF)}°F), humidity ${weather.humidityPct}%, wind ${formatSpeedMph(weather.windMph)} mph. ${weather.forecastSummary} Local time there is ${weather.localTime} (${weather.timezone}).`,
         }
       );
       toolsUsed.add('geocoding-api.open-meteo.com');
@@ -888,6 +1074,12 @@ async function buildLiveContext(userMessage, session) {
     } else {
       liveFailure = liveFailure || { type: 'weather', location: weatherLocation };
     }
+  } else if (intents.weather) {
+    directAnswers.push({
+      type: 'weather',
+      text:
+        'I can pull live weather right now. Tell me the city or area (for example: "weather in Miami, FL") and I will fetch it immediately.',
+    });
   }
 
   const timeLocation = intents.time ? locationHint || extractTimeLocation(text) || genericLocation : extractTimeLocation(text);
@@ -895,12 +1087,34 @@ async function buildLiveContext(userMessage, session) {
     const timeData = await getTimeForLocation(normalizeLocationName(timeLocation));
     if (timeData) {
       contexts.push(
-        `Live time tool data is available for this query. Location: ${timeData.name}. Timezone: ${timeData.timezone}. Local time: ${timeData.localTime}.`
+        `Live time tool data is available for this query. Location: ${timeData.name}. Timezone: ${timeData.timezone}. Local time: ${timeData.localTime}. Local date: ${timeData.localDate}.`
       );
-      directAnswers.push({ type: 'time', text: `Current local time in ${timeData.name} is ${timeData.localTime}.` });
+      directAnswers.push({
+        type: 'time',
+        text: `Current local time in ${timeData.name} is ${timeData.localTime}. Timezone: ${timeData.timezone}. Local date there is ${timeData.localDate}.`,
+      });
       toolsUsed.add('geocoding-api.open-meteo.com');
     } else {
       liveFailure = liveFailure || { type: 'time', location: timeLocation };
+      const localTimeData = getSystemLocalTimeData();
+      if (localTimeData) {
+        directAnswers.push({
+          type: 'time',
+          text: `I could not resolve "${capitalizeWords(timeLocation)}" yet, so here is live local device time: ${localTimeData.localTime} (${localTimeData.timezone}), date ${localTimeData.localDate}. If you share a nearby city, I will fetch that area next.`,
+        });
+      }
+    }
+  } else if (intents.time) {
+    const localTimeData = getSystemLocalTimeData();
+    if (localTimeData) {
+      contexts.push(
+        `Live local system time tool data is available. Timezone: ${localTimeData.timezone}. Local time: ${localTimeData.localTime}. Local date: ${localTimeData.localDate}.`
+      );
+      directAnswers.push({
+        type: 'time',
+        text: `Current local time here is ${localTimeData.localTime}. Timezone: ${localTimeData.timezone}. Local date is ${localTimeData.localDate}.`,
+      });
+      toolsUsed.add('local-system-clock');
     }
   }
 
@@ -909,12 +1123,34 @@ async function buildLiveContext(userMessage, session) {
     const dateData = await getDateForLocation(normalizeLocationName(dateLocation));
     if (dateData) {
       contexts.push(
-        `Live date tool data is available for this query. Location: ${dateData.name}. Date there is ${dateData.localDate}. Time there is ${dateData.localTime}.`
+        `Live date tool data is available for this query. Location: ${dateData.name}. Date there is ${dateData.localDate}. Time there is ${dateData.localTime}. Timezone: ${dateData.timezone}.`
       );
-      directAnswers.push({ type: 'date', text: `Current date in ${dateData.name} is ${dateData.localDate}.` });
+      directAnswers.push({
+        type: 'date',
+        text: `Current date in ${dateData.name} is ${dateData.localDate}. Timezone: ${dateData.timezone}. Local time is ${dateData.localTime}.`,
+      });
       toolsUsed.add('geocoding-api.open-meteo.com');
     } else {
       liveFailure = liveFailure || { type: 'date', location: dateLocation };
+      const localTimeData = getSystemLocalTimeData();
+      if (localTimeData) {
+        directAnswers.push({
+          type: 'date',
+          text: `I could not resolve "${capitalizeWords(dateLocation)}" yet. Current local date here is ${localTimeData.localDate} and local time is ${localTimeData.localTime} (${localTimeData.timezone}).`,
+        });
+      }
+    }
+  } else if (intents.date) {
+    const localTimeData = getSystemLocalTimeData();
+    if (localTimeData) {
+      contexts.push(
+        `Live local system date tool data is available. Timezone: ${localTimeData.timezone}. Date: ${localTimeData.localDate}. Time: ${localTimeData.localTime}.`
+      );
+      directAnswers.push({
+        type: 'date',
+        text: `Current local date here is ${localTimeData.localDate}. Local time is ${localTimeData.localTime} (${localTimeData.timezone}).`,
+      });
+      toolsUsed.add('local-system-clock');
     }
   }
 
@@ -969,15 +1205,14 @@ async function buildLiveContext(userMessage, session) {
     }
   }
 
-  if (!contexts.length) {
-    return null;
-  }
-
   const primaryIntent = selectPrimaryIntent(intents);
   const selectedDirect = selectBestDirectAnswer(primaryIntent, directAnswers);
   const liveIntent = Object.values(intents).some(Boolean);
+  if (!contexts.length && !liveIntent && !selectedDirect) {
+    return null;
+  }
   return {
-    contextText: contexts.join(' '),
+    contextText: contexts.join(' ').trim(),
     directAnswer: selectedDirect || directAnswers[0]?.text || null,
     toolsUsed: [...toolsUsed],
     liveIntent,
@@ -1264,14 +1499,26 @@ function calculateExpressionFromText(input) {
 }
 
 function convertUnitsFromText(input) {
-  const match = input.match(
+  const explicitMatch = input.match(
     /(-?\d+(?:\.\d+)?)\s*(c|f|km|mi|kg|lb|lbs|m|ft|cm|in)\s*(?:to|in)\s*(c|f|km|mi|kg|lb|lbs|m|ft|cm|in)/i
   );
-  if (!match) return null;
+  let value;
+  let from;
+  let to;
 
-  const value = Number(match[1]);
-  const from = normalizeUnit(match[2]);
-  const to = normalizeUnit(match[3]);
+  if (explicitMatch) {
+    value = Number(explicitMatch[1]);
+    from = normalizeUnit(explicitMatch[2]);
+    to = normalizeUnit(explicitMatch[3]);
+  } else {
+    const implicitMatch = input.match(/(-?\d+(?:\.\d+)?)\s*(c|f|km|mi|kg|lb|lbs|m|ft|cm|in)\b/i);
+    if (!implicitMatch) return null;
+    value = Number(implicitMatch[1]);
+    from = normalizeUnit(implicitMatch[2]);
+    if (!shouldAutoUsConvert(input, from)) return null;
+    to = preferredUsUnit(from);
+  }
+
   if (!Number.isFinite(value) || !from || !to) return null;
 
   const converted = convertUnits(value, from, to);
@@ -1289,6 +1536,30 @@ function normalizeUnit(unit) {
   return u;
 }
 
+function preferredUsUnit(unit) {
+  const u = normalizeUnit(unit);
+  const map = {
+    c: 'f',
+    km: 'mi',
+    m: 'ft',
+    cm: 'in',
+    kg: 'lb',
+  };
+  return map[u] || null;
+}
+
+function shouldAutoUsConvert(input, fromUnit) {
+  const text = String(input || '').toLowerCase();
+  if (!text.trim()) return false;
+  if (/\b(us units?|u\.s\. units?|american units?|imperial|to us|use us|fahrenheit|miles|mph|feet|foot|pounds?)\b/i.test(text)) {
+    return true;
+  }
+  if (/\b(convert|conversion|change|switch|translate)\b/i.test(text)) {
+    return Boolean(preferredUsUnit(fromUnit));
+  }
+  return false;
+}
+
 function convertUnits(value, from, to) {
   if (from === to) return value;
 
@@ -1304,6 +1575,36 @@ function convertUnits(value, from, to) {
   if (from === 'in' && to === 'cm') return value / 0.3937008;
 
   return null;
+}
+
+function cToF(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return NaN;
+  return n * (9 / 5) + 32;
+}
+
+function kmToMiles(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return NaN;
+  return n * 0.621371;
+}
+
+function kphToMph(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return NaN;
+  return n * 0.621371;
+}
+
+function formatTempF(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 'N/A';
+  return String(Math.round(n));
+}
+
+function formatSpeedMph(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 'N/A';
+  return String(Math.max(0, Math.round(n)));
 }
 
 function shouldUseWebLookup(text) {
@@ -1390,10 +1691,11 @@ async function getDirectionsSummary(input) {
 
     const distanceKm = Number(pathInfo.distance || 0) / 1000;
     const durationMin = Number(pathInfo.duration || 0) / 60;
-    if (!Number.isFinite(distanceKm) || !Number.isFinite(durationMin)) return null;
+    const distanceMi = kmToMiles(distanceKm);
+    if (!Number.isFinite(distanceMi) || !Number.isFinite(durationMin)) return null;
 
     return {
-      summary: `Driving route from ${from.name} to ${to.name} is about ${distanceKm.toFixed(1)} km and ${Math.max(1, Math.round(durationMin))} minutes (live routing estimate).`,
+      summary: `Driving route from ${from.name} to ${to.name} is about ${distanceMi.toFixed(1)} miles and ${Math.max(1, Math.round(durationMin))} minutes (live routing estimate).`,
     };
   } catch {
     return null;
@@ -1479,24 +1781,35 @@ async function fetchWebSnapshot(query) {
 }
 
 async function getTimeForLocation(locationName) {
+  const cacheKey = `time:${normalizeLocationName(locationName)}`;
+  const cached = getLiveCache(cacheKey);
+  if (cached) return cached;
+
   const geo = await geocodeLocation(locationName);
   if (geo?.timezone) {
-    const localTime = formatTimeInTimezone(geo.timezone);
-    return {
+    const bundle = formatTimeBundleInTimezone(geo.timezone);
+    const result = {
       name: geo.name,
       timezone: geo.timezone,
-      localTime,
+      localTime: bundle.localTime,
+      localDate: bundle.localDate,
     };
+    setLiveCache(cacheKey, result, 15000);
+    return result;
   }
 
   const tz = timezoneAliasFor(locationName);
   if (!tz) return null;
 
-  return {
+  const bundle = formatTimeBundleInTimezone(tz);
+  const fallback = {
     name: capitalizeWords(String(locationName || '').trim()),
     timezone: tz,
-    localTime: formatTimeInTimezone(tz),
+    localTime: bundle.localTime,
+    localDate: bundle.localDate,
   };
+  setLiveCache(cacheKey, fallback, 15000);
+  return fallback;
 }
 
 async function getDateForLocation(locationName) {
@@ -1512,9 +1825,16 @@ async function getDateForLocation(locationName) {
 }
 
 async function getWeatherForLocation(locationName) {
+  const normalized = normalizeLocationName(locationName);
+  const cacheKey = `weather:${normalized}`;
+  const cached = getLiveCache(cacheKey);
+  if (cached) return cached;
+
   const geo = await geocodeLocation(locationName);
   if (!geo) {
-    return await getWeatherFallbackWttr(locationName);
+    const fallbackWeather = await getWeatherFallbackWttr(locationName);
+    if (fallbackWeather) setLiveCache(cacheKey, fallbackWeather, 90000);
+    return fallbackWeather;
   }
 
   const url = new URL('https://api.open-meteo.com/v1/forecast');
@@ -1535,19 +1855,27 @@ async function getWeatherForLocation(locationName) {
     const current = data?.current;
     if (!current) return await getWeatherFallbackWttr(locationName);
 
-    return {
+    const weather = {
       name: geo.name,
       localTime: formatTimeInTimezone(geo.timezone || 'UTC'),
+      timezone: geo.timezone || 'UTC',
       temperatureC: current.temperature_2m,
+      temperatureF: cToF(current.temperature_2m),
       feelsLikeC: current.apparent_temperature,
+      feelsLikeF: cToF(current.apparent_temperature),
       humidityPct: current.relative_humidity_2m,
       windKph: current.wind_speed_10m,
+      windMph: kphToMph(current.wind_speed_10m),
       description: weatherCodeToText(current.weather_code, Boolean(current.is_day)),
       forecastSummary: summarizeForecastFromDaily(data?.daily),
       scopePrefix: isGeneralizedGeo(geo) ? 'Generalized live weather outlook' : 'Current weather',
     };
+    setLiveCache(cacheKey, weather, 120000);
+    return weather;
   } catch {
-    return await getWeatherFallbackWttr(locationName);
+    const fallbackWeather = await getWeatherFallbackWttr(locationName);
+    if (fallbackWeather) setLiveCache(cacheKey, fallbackWeather, 90000);
+    return fallbackWeather;
   }
 }
 
@@ -1573,10 +1901,14 @@ async function getWeatherFallbackWttr(locationName) {
     return {
       name: areaName,
       localTime: formatTimeInTimezone(timezoneAliasFor(locationName) || 'UTC'),
+      timezone: timezoneAliasFor(locationName) || 'UTC',
       temperatureC: Number(current.temp_C),
+      temperatureF: cToF(Number(current.temp_C)),
       feelsLikeC: Number(current.FeelsLikeC),
+      feelsLikeF: cToF(Number(current.FeelsLikeC)),
       humidityPct: Number(current.humidity),
       windKph: Number(current.windspeedKmph),
+      windMph: kphToMph(Number(current.windspeedKmph)),
       description: current?.weatherDesc?.[0]?.value || 'current conditions',
       forecastSummary: summarizeWttrForecast(data?.weather),
       scopePrefix: 'Current weather',
@@ -1607,6 +1939,10 @@ async function geocodeLocation(locationName) {
 }
 
 async function geocodeLocationOnce(searchName, originalQuery, hints) {
+  const cacheKey = `geocode:${String(searchName || '').toLowerCase()}|${String(hints?.countryCodeHint || '').toLowerCase()}|${String(hints?.adminHint || '').toLowerCase()}|${String(hints?.countryHint || '').toLowerCase()}`;
+  const cached = getLiveCache(cacheKey);
+  if (cached) return cached;
+
   const url = new URL('https://geocoding-api.open-meteo.com/v1/search');
   url.searchParams.set('name', searchName);
   url.searchParams.set('count', '12');
@@ -1624,7 +1960,7 @@ async function geocodeLocationOnce(searchName, originalQuery, hints) {
     const best = pickBestGeoResult(originalQuery, results, hints);
     if (!best) return null;
     const pieces = [best.name, best.admin1, best.country].filter(Boolean);
-    return {
+    const result = {
       name: pieces.join(', '),
       latitude: best.latitude,
       longitude: best.longitude,
@@ -1632,6 +1968,8 @@ async function geocodeLocationOnce(searchName, originalQuery, hints) {
       featureCode: String(best.feature_code || ''),
       countryCode: String(best.country_code || ''),
     };
+    setLiveCache(cacheKey, result, 24 * 60 * 60 * 1000);
+    return result;
   } catch {
     return null;
   }
@@ -1691,13 +2029,13 @@ function summarizeForecastFromDaily(daily) {
   const tomorrowPop = Number(daily.precipitation_probability_max?.[1]);
 
   const todayText = Number.isFinite(todayMax) && Number.isFinite(todayMin)
-    ? `Today looks ${weatherCodeToText(todayCode, true)} with highs around ${Math.round(todayMax)}C and lows near ${Math.round(todayMin)}C`
+    ? `Today looks ${weatherCodeToText(todayCode, true)} with highs around ${formatTempF(cToF(todayMax))}°F and lows near ${formatTempF(cToF(todayMin))}°F`
     : 'Today forecast is available';
 
   const todayRain = Number.isFinite(todayPop) ? `, precipitation chance up to ${Math.round(todayPop)}%` : '';
   const tomorrowText =
     Number.isFinite(tomorrowMax) && Number.isFinite(tomorrowMin)
-      ? `Tomorrow trends ${weatherCodeToText(tomorrowCode, true)} with ${Math.round(tomorrowMin)}-${Math.round(tomorrowMax)}C`
+      ? `Tomorrow trends ${weatherCodeToText(tomorrowCode, true)} with ${formatTempF(cToF(tomorrowMin))}-${formatTempF(cToF(tomorrowMax))}°F`
       : '';
   const tomorrowRain = Number.isFinite(tomorrowPop) ? ` and precipitation chance up to ${Math.round(tomorrowPop)}%` : '';
 
@@ -1712,10 +2050,39 @@ function summarizeWttrForecast(days) {
   const minC = Number(today?.mintempC);
   const rain = Number(today?.hourly?.[4]?.chanceofrain ?? today?.hourly?.[0]?.chanceofrain);
   const core = Number.isFinite(maxC) && Number.isFinite(minC)
-    ? `Today looks ${desc.toLowerCase()} with ${Math.round(minC)}-${Math.round(maxC)}C`
+    ? `Today looks ${desc.toLowerCase()} with ${formatTempF(cToF(minC))}-${formatTempF(cToF(maxC))}°F`
     : `Today looks ${desc.toLowerCase()}`;
   const rainTxt = Number.isFinite(rain) ? ` and rain chance around ${Math.round(rain)}%` : '';
   return `${core}${rainTxt}.`;
+}
+
+function formatTimeBundleInTimezone(timezone) {
+  return {
+    localTime: formatTimeInTimezone(timezone),
+    localDate: formatDateInTimezone(timezone),
+  };
+}
+
+function getSystemLocalTimeData() {
+  try {
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+    const bundle = formatTimeBundleInTimezone(timezone);
+    return {
+      name: 'Local device',
+      timezone,
+      localTime: bundle.localTime,
+      localDate: bundle.localDate,
+    };
+  } catch {
+    const timezone = 'UTC';
+    const bundle = formatTimeBundleInTimezone(timezone);
+    return {
+      name: 'Local device',
+      timezone,
+      localTime: bundle.localTime,
+      localDate: bundle.localDate,
+    };
+  }
 }
 
 function formatTimeInTimezone(timezone) {
@@ -1773,6 +2140,29 @@ function weatherCodeToText(code, isDay) {
     99: 'thunderstorm with heavy hail',
   };
   return map[code] || 'unknown conditions';
+}
+
+function getLiveCache(key) {
+  if (!LIVE_CACHE_ENABLED) return null;
+  const entry = liveCache.get(key);
+  if (!entry) return null;
+  if (!entry.expiresAt || entry.expiresAt < Date.now()) {
+    liveCache.delete(key);
+    return null;
+  }
+  return entry.value;
+}
+
+function setLiveCache(key, value, ttlMs = LIVE_CACHE_TTL_MS) {
+  if (!LIVE_CACHE_ENABLED || value == null) return;
+  if (liveCache.size >= LIVE_CACHE_MAX_ENTRIES) {
+    const oldestKey = liveCache.keys().next().value;
+    if (oldestKey) liveCache.delete(oldestKey);
+  }
+  liveCache.set(key, {
+    value,
+    expiresAt: Date.now() + Math.max(1000, Number(ttlMs) || LIVE_CACHE_TTL_MS),
+  });
 }
 
 function timezoneAliasFor(locationName) {
@@ -2037,6 +2427,9 @@ function expandCanadaProvince(input) {
 async function fetchSportsSnapshot(query) {
   const league = detectLeague(query);
   if (!league) return null;
+  const cacheKey = `sports:${league.sport}:${league.league}:${detectTeamHint(query) || 'all'}`;
+  const cached = getLiveCache(cacheKey);
+  if (cached) return cached;
 
   const url = `https://site.api.espn.com/apis/site/v2/sports/${league.sport}/${league.league}/scoreboard`;
   try {
@@ -2069,11 +2462,13 @@ async function fetchSportsSnapshot(query) {
       return `${awayName} ${awayScore} at ${homeName} ${homeScore} (${status})`;
     });
 
-    return {
+    const snapshot = {
       summary: `${league.label}: ${lines.join(' | ')}`,
       source: 'ESPN Scoreboard',
       provider: 'espn-scoreboard',
     };
+    setLiveCache(cacheKey, snapshot, 30000);
+    return snapshot;
   } catch {
     return null;
   }
@@ -2099,10 +2494,7 @@ async function transcribeAudioBuffer(buffer, mimeType = 'audio/webm') {
     form.append('response_format', 'json');
     if (OPENAI_STT_ENGLISH_ONLY) {
       form.append('language', 'en');
-      form.append(
-        'prompt',
-        'Transcribe spoken English accurately. Use plain English text and do not translate to other languages.'
-      );
+      form.append('prompt', 'Transcribe only clearly spoken English words.');
     }
 
     try {
@@ -2208,19 +2600,30 @@ function buildYouTubeSearchUrl(trackName, artistName) {
   return `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`;
 }
 
-async function detectFacesAndItems(imageDataUrl) {
+async function detectFacesAndItems(imageDataUrl, sensorContext = null) {
+  const sensorPrompt = buildSensorContextPrompt(sensorContext);
   const payload = {
     model: OPENAI_VISION_MODEL,
     messages: [
       {
         role: 'system',
         content:
-          'You are a vision detector for S.C.O.U.T. Detect visible objects and faces. Return compact JSON only. Use normalized bbox values between 0 and 1. If uncertain, lower confidence.',
+          'You are a vision detector for S.C.O.U.T. Detect visible objects, people, and faces with practical detail for navigation and situational awareness. Return compact JSON only. Use normalized bbox values between 0 and 1. If uncertain, lower confidence. Do not infer identity, age, ethnicity, religion, medical state, or intent. Describe only visible attributes and actions.',
       },
       {
         role: 'user',
         content: [
-          { type: 'text', text: 'Detect items and faces in this frame.' },
+          {
+            type: 'text',
+            text: [
+              'Detect items and faces in this frame with richer detail.',
+              'Include: scene summary, lighting, activity, hazards, item attributes/actions, and face-visible traits like expression, attention, facial hair, accessories, pose/visibility.',
+              'Focus on useful operational detail for environment scanning.',
+              sensorPrompt,
+            ]
+              .filter(Boolean)
+              .join(' '),
+          },
           { type: 'image_url', image_url: { url: imageDataUrl } },
         ],
       },
@@ -2234,6 +2637,14 @@ async function detectFacesAndItems(imageDataUrl) {
           additionalProperties: false,
           properties: {
             sceneSummary: { type: 'string' },
+            environmentType: { type: 'string' },
+            lighting: { type: 'string' },
+            activitySummary: { type: 'string' },
+            hazards: {
+              type: 'array',
+              maxItems: 8,
+              items: { type: 'string' },
+            },
             items: {
               type: 'array',
               maxItems: 12,
@@ -2242,8 +2653,15 @@ async function detectFacesAndItems(imageDataUrl) {
                 additionalProperties: false,
                 properties: {
                   label: { type: 'string' },
+                  category: { type: 'string' },
                   confidence: { type: 'number' },
                   attributes: { type: 'string' },
+                  action: { type: 'string' },
+                  state: { type: 'string' },
+                  color: { type: 'string' },
+                  material: { type: 'string' },
+                  locationHint: { type: 'string' },
+                  occluded: { type: 'boolean' },
                   bbox: {
                     type: 'object',
                     additionalProperties: false,
@@ -2268,7 +2686,19 @@ async function detectFacesAndItems(imageDataUrl) {
                 properties: {
                   confidence: { type: 'number' },
                   expression: { type: 'string' },
+                  attention: { type: 'string' },
                   lookingAtCamera: { type: 'boolean' },
+                  headPose: { type: 'string' },
+                  visibility: { type: 'string' },
+                  facialHair: { type: 'string' },
+                  accessories: {
+                    type: 'array',
+                    maxItems: 5,
+                    items: { type: 'string' },
+                  },
+                  action: { type: 'string' },
+                  appearance: { type: 'string' },
+                  personDescription: { type: 'string' },
                   bbox: {
                     type: 'object',
                     additionalProperties: false,
@@ -2316,14 +2746,25 @@ async function detectFacesAndItems(imageDataUrl) {
 }
 
 function normalizeDetections(input) {
-  const sceneSummary = String(input?.sceneSummary || '').trim();
+  const sceneSummary = cleanDetectionText(input?.sceneSummary, 260);
+  const environmentType = cleanDetectionText(input?.environmentType, 80);
+  const lighting = cleanDetectionText(input?.lighting, 80);
+  const activitySummary = cleanDetectionText(input?.activitySummary, 160);
+  const hazards = normalizeStringList(input?.hazards, 8, 64);
 
   const items = Array.isArray(input?.items)
     ? input.items
         .map((item) => ({
-          label: String(item?.label || '').trim(),
+          label: cleanDetectionText(item?.label, 60),
+          category: cleanDetectionText(item?.category, 40),
           confidence: clamp01(Number(item?.confidence)),
-          attributes: String(item?.attributes || '').trim(),
+          attributes: cleanDetectionText(item?.attributes, 160),
+          action: cleanDetectionText(item?.action, 80),
+          state: cleanDetectionText(item?.state, 80),
+          color: cleanDetectionText(item?.color, 40),
+          material: cleanDetectionText(item?.material, 40),
+          locationHint: cleanDetectionText(item?.locationHint, 80),
+          occluded: Boolean(item?.occluded),
           bbox: normalizeBox(item?.bbox),
         }))
         .filter((item) => item.label)
@@ -2334,14 +2775,22 @@ function normalizeDetections(input) {
     ? input.faces
         .map((face) => ({
           confidence: clamp01(Number(face?.confidence)),
-          expression: String(face?.expression || '').trim(),
-          lookingAtCamera: Boolean(face?.lookingAtCamera),
+          expression: cleanDetectionText(face?.expression, 60),
+          attention: cleanDetectionText(face?.attention, 40),
+          lookingAtCamera: Boolean(face?.lookingAtCamera) || /camera|viewer|forward/.test(String(face?.attention || '').toLowerCase()),
+          headPose: cleanDetectionText(face?.headPose, 60),
+          visibility: cleanDetectionText(face?.visibility, 60),
+          facialHair: cleanDetectionText(face?.facialHair, 60),
+          accessories: normalizeStringList(face?.accessories, 5, 40),
+          action: cleanDetectionText(face?.action, 80),
+          appearance: cleanDetectionText(face?.appearance, 120),
+          personDescription: cleanDetectionText(face?.personDescription, 160),
           bbox: normalizeBox(face?.bbox),
         }))
         .slice(0, 8)
     : [];
 
-  return { sceneSummary, items, faces };
+  return { sceneSummary, environmentType, lighting, activitySummary, hazards, items, faces };
 }
 
 function normalizeBox(box) {
@@ -2357,6 +2806,35 @@ function normalizeBox(box) {
 function clamp01(v) {
   if (!Number.isFinite(v)) return 0;
   return Math.max(0, Math.min(1, v));
+}
+
+function cleanDetectionText(value, maxLen = 120) {
+  const text = String(value || '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!text) return '';
+  return text.length > maxLen ? `${text.slice(0, maxLen - 3)}...` : text;
+}
+
+function normalizeStringList(input, maxItems = 6, maxLen = 48) {
+  if (!Array.isArray(input)) return [];
+  return input
+    .map((v) => cleanDetectionText(v, maxLen))
+    .filter(Boolean)
+    .slice(0, maxItems);
+}
+
+function buildSensorContextPrompt(sensorContext) {
+  if (!sensorContext || typeof sensorContext !== 'object') return '';
+  const keys = ['lidarSummary', 'depthSummary', 'depthBands', 'rangeSamples', 'sensorLabel'];
+  const picked = {};
+  for (const key of keys) {
+    if (sensorContext[key] != null) picked[key] = sensorContext[key];
+  }
+  if (!Object.keys(picked).length) return '';
+  const serialized = JSON.stringify(picked);
+  const compact = serialized.length > 320 ? `${serialized.slice(0, 317)}...` : serialized;
+  return `Additional non-visual sensor context is available (if present, blend cautiously): ${compact}`;
 }
 
 function tryParseJsonObject(raw) {
@@ -2392,10 +2870,7 @@ function trimError(text) {
 }
 
 function isObservationQuery(text) {
-  const t = String(text || '').toLowerCase();
-  return /\b(what do you see|what can you see|what are you seeing|what is being seen|what's in front of you|what is in frame|what do you detect|what do you observe|can you see me|see me|look at|observe)\b/i.test(
-    t
-  );
+  return matchesObservationIntent(text);
 }
 
 function buildObservationReply(observationContext) {
@@ -2403,10 +2878,48 @@ function buildObservationReply(observationContext) {
     .replace(/\s+/g, ' ')
     .trim();
   if (!clean) {
-    return 'I do not have a clear camera frame right now. Please ensure camera context is enabled and try again.';
+    return 'I’m not getting a clear camera read yet. Give me another second or adjust the camera angle and I’ll rescan.';
   }
-  const short = clean.length > 240 ? `${clean.slice(0, 237)}...` : clean;
-  return `Here is what I see right now: ${short}`;
+  const polished = humanizeCoachReply(clean);
+  const compact = trimToSentenceBoundary(polished, 320);
+  return compact || 'I can see the scene, but details are still stabilizing. Give me another quick second and I’ll refine it.';
+}
+
+function humanizeCoachReply(text) {
+  let out = String(text || '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!out) return '';
+  out = out.replace(/^(?:observation|analysis|summary|scene details|detected items|detected faces)\s*[:\-]\s*/i, '');
+  out = out.replace(/\b(?:scene details|detected items|detected faces|activity|potential hazards)\s*:\s*/gi, '');
+  out = out.replace(/\bI am\b/g, "I'm");
+  out = out.replace(/\bdo not\b/g, "don't");
+  out = out.replace(/\bcan not\b/g, "can't");
+  out = out.replace(/^[,;\-:\s]+/, '').trim();
+  return out;
+}
+
+function trimToSentenceBoundary(text, maxChars = 320) {
+  const source = String(text || '').trim();
+  if (!source) return '';
+  if (source.length <= maxChars) return ensureSentenceEnding(source);
+
+  const slice = source.slice(0, maxChars);
+  const punctuationCut = Math.max(slice.lastIndexOf('. '), slice.lastIndexOf('! '), slice.lastIndexOf('? '));
+  if (punctuationCut > 120) {
+    return ensureSentenceEnding(slice.slice(0, punctuationCut + 1).trim());
+  }
+
+  const wordCut = slice.lastIndexOf(' ');
+  const base = wordCut > 120 ? slice.slice(0, wordCut).trim() : slice.trim();
+  return ensureSentenceEnding(base);
+}
+
+function ensureSentenceEnding(text) {
+  const out = String(text || '').trim();
+  if (!out) return '';
+  if (/[.!?]$/.test(out)) return out;
+  return `${out}.`;
 }
 
 function mimeToExt(mimeType) {
@@ -2416,6 +2929,62 @@ function mimeToExt(mimeType) {
   if (m.includes('mpeg') || m.includes('mp3')) return 'mp3';
   if (m.includes('ogg')) return 'ogg';
   return 'webm';
+}
+
+async function loadMissionPacks() {
+  const defaults = defaultMissionPacks();
+  try {
+    const raw = await fs.readFile(missionPackFile, 'utf8');
+    const parsed = JSON.parse(raw);
+    return normalizeMissionPacks(parsed, defaults);
+  } catch {
+    return defaults;
+  }
+}
+
+function defaultMissionPacks() {
+  return {
+    general: {
+      summary: 'Balanced assistant behavior for day-to-day requests.',
+      priorities: ['accuracy', 'clarity', 'responsiveness'],
+      styleRules: ['Prefer concise answers unless the user asks for depth.', 'Be practical and actionable.'],
+    },
+    training: {
+      summary: 'Coaching-first behavior with explain-then-act guidance.',
+      priorities: ['instruction quality', 'repeatable drills', 'confidence building'],
+      styleRules: ['Give clear steps.', 'Provide one focused improvement at a time.'],
+    },
+    safety: {
+      summary: 'Risk-aware guidance with conservative decision support.',
+      priorities: ['hazard prevention', 'safe fallback actions', 'explicit assumptions'],
+      styleRules: ['Call out uncertainty.', 'Prefer safe defaults when context is incomplete.'],
+    },
+    race: {
+      summary: 'Low-latency tactical guidance for performance contexts.',
+      priorities: ['speed', 'signal-to-noise', 'timing cues'],
+      styleRules: ['Keep language brief and sharp.', 'Prioritize immediate tactical value.'],
+    },
+    focus: {
+      summary: 'Deep technical mode for detailed troubleshooting and planning.',
+      priorities: ['technical depth', 'precision', 'verification'],
+      styleRules: ['Use structured reasoning.', 'State assumptions and checks clearly.'],
+    },
+  };
+}
+
+function normalizeMissionPacks(input, defaults) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return defaults;
+  const normalized = { ...defaults };
+  for (const mode of Object.keys(defaults)) {
+    const raw = input?.[mode];
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) continue;
+    normalized[mode] = {
+      summary: typeof raw.summary === 'string' && raw.summary.trim() ? raw.summary.trim() : defaults[mode].summary,
+      priorities: Array.isArray(raw.priorities) ? raw.priorities.map((v) => String(v || '').trim()).filter(Boolean) : defaults[mode].priorities,
+      styleRules: Array.isArray(raw.styleRules) ? raw.styleRules.map((v) => String(v || '').trim()).filter(Boolean) : defaults[mode].styleRules,
+    };
+  }
+  return normalized;
 }
 
 async function loadSessions() {
@@ -2608,17 +3177,9 @@ function detectTopicTags(lowerText) {
   return tags;
 }
 
-function resolveChatProvider() {
-  const wantOllama = AI_PROVIDER === 'ollama';
-  const wantOpenAI = AI_PROVIDER === 'openai';
-  const openAIReady = Boolean(OPENAI_API_KEY);
-  const ollamaReady = Boolean(OLLAMA_MODEL);
-
-  if (wantOpenAI) return openAIReady ? 'openai' : 'none';
-  if (wantOllama) return ollamaReady ? 'ollama' : 'none';
-  if (openAIReady) return 'openai';
-  if (ollamaReady) return 'ollama';
-  return 'none';
+function resolveChatProvider(mode = 'general') {
+  const order = resolveProviderOrder(mode);
+  return order[0] || 'none';
 }
 
 function resolveTtsSettings(override = {}) {

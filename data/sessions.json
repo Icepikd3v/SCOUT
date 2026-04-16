@@ -1560,5 +1560,1052 @@
     "startedAt": "2026-04-10T03:37:31.345Z",
     "endedAt": null,
     "messages": []
+  },
+  "session_mo12trlc_tsq6l": {
+    "id": "session_mo12trlc_tsq6l",
+    "mode": "general",
+    "strongFocus": false,
+    "startedAt": "2026-04-16T06:06:40.368Z",
+    "endedAt": "2026-04-16T06:06:40.881Z",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Give me a quick training cue",
+        "createdAt": "2026-04-16T06:06:40.418Z"
+      },
+      {
+        "role": "assistant",
+        "content": "All AI engines are currently unavailable. I can still help with live weather/time/date/location lookups and local tool guidance while we retry the model path.",
+        "createdAt": "2026-04-16T06:06:40.823Z"
+      }
+    ]
+  },
+  "session_mo12x3uf_a8qjs": {
+    "id": "session_mo12x3uf_a8qjs",
+    "mode": "general",
+    "strongFocus": false,
+    "startedAt": "2026-04-16T06:09:16.215Z",
+    "endedAt": null,
+    "messages": []
+  },
+  "session_mo13evxt_mw7vh": {
+    "id": "session_mo13evxt_mw7vh",
+    "mode": "general",
+    "strongFocus": false,
+    "startedAt": "2026-04-16T06:23:05.777Z",
+    "endedAt": null,
+    "messages": [
+      {
+        "role": "user",
+        "content": "What's the weather like in West Virginia?",
+        "createdAt": "2026-04-16T06:23:23.769Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Current weather in West Virginia, United States: overcast, 19.6C (feels like 18C), humidity 52%, wind 10.7 km/h. Today looks overcast with highs around 27C and lows near 17C, precipitation chance up to 44%. Tomorrow trends overcast with 13-24C and precipitation chance up to 30%. Local time there is Thu, Apr 16, 2:23:24 AM (America/New_York).",
+        "createdAt": "2026-04-16T06:23:24.433Z"
+      },
+      {
+        "role": "user",
+        "content": "Use plain English text and do not translate to other languages.",
+        "createdAt": "2026-04-16T06:23:35.810Z"
+      },
+      {
+        "role": "assistant",
+        "content": "The weather in West Virginia is currently overcast, with a temperature of about 19.6°C. It feels a bit cooler at 18°C, with humidity at 52% and a light wind at 10.7 km/h. Expect highs around 27°C and lows near 17°C today.",
+        "createdAt": "2026-04-16T06:23:38.346Z"
+      },
+      {
+        "role": "user",
+        "content": "Use plain English text and do not translate to other languages.",
+        "createdAt": "2026-04-16T06:24:09.758Z"
+      },
+      {
+        "role": "assistant",
+        "content": "The weather in West Virginia is currently overcast, with a temperature of about 19.6°C. It feels slightly cooler at 18°C, with humidity at 52% and a light wind at 10.7 km/h. Expect highs around 27°C and lows near 17°C today.",
+        "createdAt": "2026-04-16T06:24:11.520Z"
+      },
+      {
+        "role": "user",
+        "content": "Learn English for free www.engvid.com",
+        "createdAt": "2026-04-16T06:24:45.065Z"
+      },
+      {
+        "role": "assistant",
+        "content": "It seems like you're sharing a resource for learning English. If you're looking for tips or specific lessons, feel free to ask!",
+        "createdAt": "2026-04-16T06:24:46.145Z"
+      },
+      {
+        "role": "user",
+        "content": "Use plain English text and do not translate to other languages.",
+        "createdAt": "2026-04-16T06:25:02.531Z"
+      },
+      {
+        "role": "assistant",
+        "content": "I understand. If you have any specific questions or need help with something, just let me know!",
+        "createdAt": "2026-04-16T06:25:03.493Z"
+      },
+      {
+        "role": "user",
+        "content": "Use plain English text and do not translate to other languages.",
+        "createdAt": "2026-04-16T06:25:18.798Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Got it! I'll stick to plain English. How can I assist you today?",
+        "createdAt": "2026-04-16T06:25:19.790Z"
+      },
+      {
+        "role": "user",
+        "content": "Learn English for free www.engvid.com",
+        "createdAt": "2026-04-16T06:25:31.109Z"
+      },
+      {
+        "role": "assistant",
+        "content": "EngVid is a great resource for learning English for free! It offers video lessons on various topics, including grammar, vocabulary, and pronunciation. You can explore their website for lessons that suit your needs.",
+        "createdAt": "2026-04-16T06:25:32.431Z"
+      },
+      {
+        "role": "user",
+        "content": "Well, right now we're speaking English.",
+        "createdAt": "2026-04-16T06:25:58.646Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Absolutely! We're communicating in English right now. If there's anything specific you'd like to discuss or learn about, just let me know!",
+        "createdAt": "2026-04-16T06:25:59.699Z"
+      },
+      {
+        "role": "user",
+        "content": "...customized car insurance to save people hundreds. Right. Well, look, Junior keeps riding this. Wow, look at this, Junior.",
+        "createdAt": "2026-04-16T06:26:22.367Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Here is what I see right now: The image shows a person lying down in a dimly lit environment, possibly in bed. Their face is partially visible, and the surroundings appear dark. Detected faces: 1 face detected, expression: neutral. Change update: baseline observation...",
+        "createdAt": "2026-04-16T06:26:22.370Z"
+      },
+      {
+        "role": "user",
+        "content": "Use plain English text and do not translate to other languages.",
+        "createdAt": "2026-04-16T06:26:51.130Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Understood! I will stick to plain English and won't translate to other languages. How can I assist you further?",
+        "createdAt": "2026-04-16T06:26:53.860Z"
+      },
+      {
+        "role": "user",
+        "content": "CIA Blackside.",
+        "createdAt": "2026-04-16T06:27:07.362Z"
+      },
+      {
+        "role": "assistant",
+        "content": "It sounds like you're referring to a covert operation or a secretive aspect of the CIA. If you have specific questions or topics related to this, feel free to share!",
+        "createdAt": "2026-04-16T06:27:08.477Z"
+      },
+      {
+        "role": "user",
+        "content": "I want you to find William Butcher.",
+        "createdAt": "2026-04-16T06:27:29.078Z"
+      },
+      {
+        "role": "assistant",
+        "content": "I can help you with that! However, I need more context. Are you looking for a specific William Butcher, like a public figure or someone in a particular location? Let me know how I can assist!",
+        "createdAt": "2026-04-16T06:27:30.309Z"
+      },
+      {
+        "role": "user",
+        "content": "I do give you a proper comeback.",
+        "createdAt": "2026-04-16T06:27:51.007Z"
+      },
+      {
+        "role": "assistant",
+        "content": "I appreciate that! I'm here for a good conversation. What's on your mind?",
+        "createdAt": "2026-04-16T06:27:52.003Z"
+      },
+      {
+        "role": "user",
+        "content": "You got that I know I know and listen I am",
+        "createdAt": "2026-04-16T06:28:09.911Z"
+      },
+      {
+        "role": "assistant",
+        "content": "It sounds like you're expressing some thoughts or feelings. I'm here to listen! What would you like to share or discuss?",
+        "createdAt": "2026-04-16T06:28:11.120Z"
+      },
+      {
+        "role": "user",
+        "content": "Learn English for free www.engvid.com",
+        "createdAt": "2026-04-16T06:28:25.704Z"
+      },
+      {
+        "role": "assistant",
+        "content": "That's a great resource for learning English! EngVid offers free video lessons on various topics, which can be very helpful for improving language skills. Are you looking for specific lessons or topics?",
+        "createdAt": "2026-04-16T06:28:27.438Z"
+      },
+      {
+        "role": "user",
+        "content": "Use plain English text and do not translate to other languages.",
+        "createdAt": "2026-04-16T06:28:49.935Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Got it! I'll stick to plain English. How can I assist you today?",
+        "createdAt": "2026-04-16T06:28:52.024Z"
+      },
+      {
+        "role": "user",
+        "content": "Use plain English text and do not translate to other languages.",
+        "createdAt": "2026-04-16T06:29:05.142Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Understood! I will use plain English and avoid translations. How can I help you today?",
+        "createdAt": "2026-04-16T06:29:06.474Z"
+      },
+      {
+        "role": "user",
+        "content": "Use plain English text and do not translate to other languages.",
+        "createdAt": "2026-04-16T06:29:20.006Z"
+      },
+      {
+        "role": "assistant",
+        "content": "I understand your request. I will use plain English and not translate. How can I assist you today?",
+        "createdAt": "2026-04-16T06:29:21.339Z"
+      },
+      {
+        "role": "user",
+        "content": "Yes, you said it.",
+        "createdAt": "2026-04-16T06:29:35.404Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Great! If there's anything specific you want to discuss or need help with, just let me know!",
+        "createdAt": "2026-04-16T06:29:36.436Z"
+      },
+      {
+        "role": "user",
+        "content": "Use plain English text and do not translate to other languages.",
+        "createdAt": "2026-04-16T06:29:48.767Z"
+      },
+      {
+        "role": "assistant",
+        "content": "I understand your request clearly. I will continue using plain English. What would you like to talk about?",
+        "createdAt": "2026-04-16T06:29:49.850Z"
+      },
+      {
+        "role": "user",
+        "content": "What? Say that again. The virus is contagious. It's 2016. It's over. The game is over.",
+        "createdAt": "2026-04-16T06:30:11.200Z"
+      },
+      {
+        "role": "assistant",
+        "content": "It sounds like you're referencing a situation or event from 2016. If you're discussing a specific topic or need information about it, please let me know how I can help!",
+        "createdAt": "2026-04-16T06:30:12.899Z"
+      },
+      {
+        "role": "user",
+        "content": "C'est quoi que c'est?",
+        "createdAt": "2026-04-16T06:30:31.209Z"
+      },
+      {
+        "role": "assistant",
+        "content": "I see you're asking \"What is it?\" in French. If you can provide more context or specify what you're referring to, I'd be happy to help!",
+        "createdAt": "2026-04-16T06:30:32.599Z"
+      },
+      {
+        "role": "user",
+        "content": "He can't probably hold his breath for a couple of hours, like a new wave. If he won't breathe, how do we get the virus in him? Whoa!",
+        "createdAt": "2026-04-16T06:30:53.602Z"
+      },
+      {
+        "role": "assistant",
+        "content": "It sounds like you're discussing a scenario involving a virus and breath-holding. If you're exploring a fictional concept or a specific story, could you clarify what you're referring to? This will help me provide a better response!",
+        "createdAt": "2026-04-16T06:30:55.135Z"
+      }
+    ]
+  },
+  "session_mo13qsj3_l0qoy": {
+    "id": "session_mo13qsj3_l0qoy",
+    "mode": "general",
+    "strongFocus": false,
+    "startedAt": "2026-04-16T06:32:21.231Z",
+    "endedAt": null,
+    "messages": [
+      {
+        "role": "user",
+        "content": "Learn English for free www.engvid.com",
+        "createdAt": "2026-04-16T06:32:37.735Z"
+      },
+      {
+        "role": "assistant",
+        "content": "EngVid is a great resource for learning English! It offers free video lessons on various topics, including grammar, vocabulary, and pronunciation. You can also practice with quizzes and exercises. Enjoy your learning journey!",
+        "createdAt": "2026-04-16T06:32:39.111Z"
+      },
+      {
+        "role": "user",
+        "content": "Learn English for free www.engvid.com",
+        "createdAt": "2026-04-16T06:32:47.100Z"
+      },
+      {
+        "role": "assistant",
+        "content": "EngVid is a fantastic platform for learning English at no cost. It features a variety of video lessons covering grammar, vocabulary, and conversation skills. You can also engage in quizzes to test your understanding. Enjoy your learning journey!",
+        "createdAt": "2026-04-16T06:32:48.587Z"
+      },
+      {
+        "role": "user",
+        "content": "Learn English for free www.engvid.com",
+        "createdAt": "2026-04-16T06:33:04.165Z"
+      },
+      {
+        "role": "assistant",
+        "content": "EngVid is an excellent resource for learning English for free. It offers a wide range of video lessons on grammar, vocabulary, and speaking skills. You can access it anytime to improve your language proficiency!",
+        "createdAt": "2026-04-16T06:33:05.358Z"
+      }
+    ]
+  },
+  "session_mo13uvxo_rdgqs": {
+    "id": "session_mo13uvxo_rdgqs",
+    "mode": "general",
+    "strongFocus": false,
+    "startedAt": "2026-04-16T06:35:32.268Z",
+    "endedAt": null,
+    "messages": [
+      {
+        "role": "user",
+        "content": "What's the weather like in West Virginia?",
+        "createdAt": "2026-04-16T06:35:50.588Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Current weather in West Virginia, United States: overcast, 19.2C (feels like 17.2C), humidity 50%, wind 11.2 km/h. Today looks overcast with highs around 27C and lows near 17C, precipitation chance up to 44%. Tomorrow trends overcast with 13-24C and precipitation chance up to 30%. Local time there is Thu, Apr 16, 2:35:51 AM (America/New_York).",
+        "createdAt": "2026-04-16T06:35:51.216Z"
+      }
+    ]
+  },
+  "session_mo13x9nf_zfo0b": {
+    "id": "session_mo13x9nf_zfo0b",
+    "mode": "general",
+    "strongFocus": false,
+    "startedAt": "2026-04-16T06:37:23.355Z",
+    "endedAt": null,
+    "messages": [
+      {
+        "role": "user",
+        "content": "What's the weather like in West Virginia right now?",
+        "createdAt": "2026-04-16T06:37:57.967Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Current weather in West Virginia, United States: overcast, 19.2C (feels like 17.3C), humidity 50%, wind 11 km/h. Today looks overcast with highs around 27C and lows near 17C, precipitation chance up to 44%. Tomorrow trends overcast with 13-24C and precipitation chance up to 30%. Local time there is Thu, Apr 16, 2:37:58 AM (America/New_York).",
+        "createdAt": "2026-04-16T06:37:58.550Z"
+      }
+    ]
+  },
+  "session_mo14auwi_hywbf": {
+    "id": "session_mo14auwi_hywbf",
+    "mode": "general",
+    "strongFocus": false,
+    "startedAt": "2026-04-16T06:47:57.426Z",
+    "endedAt": null,
+    "messages": [
+      {
+        "role": "user",
+        "content": "What's the weather like in West Virginia right now?",
+        "createdAt": "2026-04-16T06:48:23.072Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Current weather in West Virginia, United States: overcast, 19.3C (feels like 17.9C), humidity 55%, wind 9.7 km/h. Today looks overcast with highs around 27C and lows near 17C, precipitation chance up to 44%. Tomorrow trends overcast with 13-24C and precipitation chance up to 28%. Local time there is Thu, Apr 16, 2:48:23 AM (America/New_York).",
+        "createdAt": "2026-04-16T06:48:23.678Z"
+      }
+    ]
+  },
+  "session_mo1pklla_vo3x9": {
+    "id": "session_mo1pklla_vo3x9",
+    "mode": "general",
+    "strongFocus": false,
+    "startedAt": "2026-04-16T16:43:23.854Z",
+    "endedAt": "2026-04-16T16:43:26.565Z",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Give me a quick training cue",
+        "createdAt": "2026-04-16T16:43:23.904Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Focus on your breathing. Inhale deeply for four counts, hold for four, then exhale for six. Repeat this cycle to enhance your concentration and calm your mind before training.",
+        "createdAt": "2026-04-16T16:43:26.499Z"
+      }
+    ]
+  },
+  "session_mo1plkh5_klt3w": {
+    "id": "session_mo1plkh5_klt3w",
+    "mode": "general",
+    "strongFocus": false,
+    "startedAt": "2026-04-16T16:44:09.065Z",
+    "endedAt": "2026-04-16T16:44:10.190Z",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Give me a quick training cue",
+        "createdAt": "2026-04-16T16:44:09.116Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Focus on your form and breathing. Maintain a steady pace, and remember to hydrate regularly. Consistency is key to improvement!",
+        "createdAt": "2026-04-16T16:44:10.125Z"
+      }
+    ]
+  },
+  "session_mo1pxuyv_ei56d": {
+    "id": "session_mo1pxuyv_ei56d",
+    "mode": "general",
+    "strongFocus": false,
+    "startedAt": "2026-04-16T16:53:42.535Z",
+    "endedAt": null,
+    "messages": [
+      {
+        "role": "user",
+        "content": "Learn English for free www.engvid.com",
+        "createdAt": "2026-04-16T16:53:52.169Z"
+      },
+      {
+        "role": "assistant",
+        "content": "EngVid is a great resource for learning English for free! They offer video lessons on various topics, from grammar to vocabulary. You can also practice with quizzes and exercises to reinforce your learning. Enjoy your studies!",
+        "createdAt": "2026-04-16T16:53:54.294Z"
+      },
+      {
+        "role": "user",
+        "content": "I asked, what's the weather like in West Virginia right now?",
+        "createdAt": "2026-04-16T16:54:20.119Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Current weather in West Virginia, United States: clear sky, 25C (feels like 23.9C), humidity 38%, wind 19.1 km/h. Today looks slight rain with highs around 27C and lows near 16C, precipitation chance up to 52%. Tomorrow trends overcast with 14-24C and precipitation chance up to 23%. Local time there is Thu, Apr 16, 12:54:20 PM (America/New_York).",
+        "createdAt": "2026-04-16T16:54:20.828Z"
+      },
+      {
+        "role": "user",
+        "content": "Can you tell me those degrees in Fahrenheit please?",
+        "createdAt": "2026-04-16T16:55:07.192Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Currently, it's about 77°F in West Virginia (feels like 75°F). The forecasted high is around 81°F and the low is about 61°F.",
+        "createdAt": "2026-04-16T16:55:08.175Z"
+      },
+      {
+        "role": "user",
+        "content": "Awesome. What's the time in Japan right now?",
+        "createdAt": "2026-04-16T16:55:34.478Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Current local time in Tokyo, Japan is Fri, Apr 17, 1:55:34 AM. Timezone: Asia/Tokyo. Local date there is Friday, April 17, 2026.",
+        "createdAt": "2026-04-16T16:55:34.482Z"
+      },
+      {
+        "role": "user",
+        "content": "Okay, cool. Can you tell me what you see?",
+        "createdAt": "2026-04-16T16:56:02.900Z"
+      },
+      {
+        "role": "user",
+        "content": "Learn English for free www.engvid.com",
+        "createdAt": "2026-04-16T16:56:03.113Z"
+      },
+      {
+        "role": "assistant",
+        "content": "I see a person with a beard smiling and waving at the camera. The background shows a room with some furniture and a fan. It looks like a friendly environment!",
+        "createdAt": "2026-04-16T16:56:03.936Z"
+      },
+      {
+        "role": "assistant",
+        "content": "It seems like you're sharing a resource for learning English. If you have a specific question or need help with something related to English learning, feel free to ask!",
+        "createdAt": "2026-04-16T16:56:04.086Z"
+      },
+      {
+        "role": "user",
+        "content": "Incorrect. Use your eyes. Videos.",
+        "createdAt": "2026-04-16T16:56:21.992Z"
+      },
+      {
+        "role": "assistant",
+        "content": "I currently don't have access to video content or the ability to analyze it directly. If you can describe the video or provide specific details, I can help you with information or insights related to it!",
+        "createdAt": "2026-04-16T16:56:23.159Z"
+      }
+    ]
+  },
+  "session_mo1q8y90_zxu5w": {
+    "id": "session_mo1q8y90_zxu5w",
+    "mode": "general",
+    "strongFocus": false,
+    "startedAt": "2026-04-16T17:02:20.004Z",
+    "endedAt": null,
+    "messages": [
+      {
+        "role": "user",
+        "content": "Hey Scout, tell me what you see.",
+        "createdAt": "2026-04-16T17:02:32.680Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Here is what I see right now: A person with a beard is sitting in front of a webcam, looking directly at the camera. The background shows a room with some clutter, including a bed and a fan. Detected items: chair (85%), bed (75%), fan (70%). Detected faces: 1 face de...",
+        "createdAt": "2026-04-16T17:02:32.684Z"
+      },
+      {
+        "role": "user",
+        "content": "Okay, what about now? Tell me what you see.",
+        "createdAt": "2026-04-16T17:03:10.472Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Here is what I see right now: A person with a beard is sitting in front of a microphone, wearing a blue shirt. The background shows a bed and a fan, with some items scattered around. The individual appears to be engaged in conversation or recording. Detected items: m...",
+        "createdAt": "2026-04-16T17:03:10.475Z"
+      },
+      {
+        "role": "user",
+        "content": "Can you scan the environment?",
+        "createdAt": "2026-04-16T17:03:49.029Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Here is what I see right now: A person with a beard is sitting in front of a webcam, looking directly at the camera. The background shows a room with a bed and some scattered items. Detected items: bed (85%), clothes (75%), fan (70%). Detected faces: 1 face detected,...",
+        "createdAt": "2026-04-16T17:03:49.030Z"
+      },
+      {
+        "role": "user",
+        "content": "Learn English for free www.engvid.com",
+        "createdAt": "2026-04-16T17:04:27.520Z"
+      },
+      {
+        "role": "user",
+        "content": "Okay Scout, tell me what you see now.",
+        "createdAt": "2026-04-16T17:04:28.675Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Here is what I see right now: The image shows a mechanical setup with a circular component mounted above a frame, likely part of a robotic or automated system. There are wires and electronic components visible, suggesting it may be in the process of being tested or a...",
+        "createdAt": "2026-04-16T17:04:28.678Z"
+      },
+      {
+        "role": "assistant",
+        "content": "It looks like you're sharing a resource for learning English! EngVid offers free lessons and videos to help improve language skills. If you need specific tips or guidance on learning, feel free to ask!",
+        "createdAt": "2026-04-16T17:04:28.849Z"
+      },
+      {
+        "role": "user",
+        "content": "Learn English for free www.engvid.com",
+        "createdAt": "2026-04-16T17:04:38.889Z"
+      },
+      {
+        "role": "assistant",
+        "content": "It seems you're promoting a great resource for learning English! EngVid offers a variety of free lessons that can help improve your language skills. If you have any specific topics or questions in mind, feel free to ask!",
+        "createdAt": "2026-04-16T17:04:40.172Z"
+      },
+      {
+        "role": "user",
+        "content": "Tell me what you see.",
+        "createdAt": "2026-04-16T17:05:07.421Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Here is what I see right now: The image shows a 3D printer setup with a circular component mounted above it. There are various objects on a table, including a small figure and some rolls, while the background features a dark curtain and a bed. Detected items: 3D prin...",
+        "createdAt": "2026-04-16T17:05:07.422Z"
+      }
+    ]
+  },
+  "session_mo1qj5ht_8t9oj": {
+    "id": "session_mo1qj5ht_8t9oj",
+    "mode": "general",
+    "strongFocus": false,
+    "startedAt": "2026-04-16T17:10:15.953Z",
+    "endedAt": null,
+    "messages": [
+      {
+        "role": "user",
+        "content": "Hey Scout!",
+        "createdAt": "2026-04-16T17:10:21.135Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Hey Samuel! How's it going? What can I help you with today?",
+        "createdAt": "2026-04-16T17:10:22.092Z"
+      },
+      {
+        "role": "user",
+        "content": "Tell me what you see.",
+        "createdAt": "2026-04-16T17:10:36.844Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Here is what I see right now: A person is sitting in a room, holding up a blue and black object, possibly a toy or a shoe, while looking at the camera. The background includes a bed and a fan. Scene summary: A person is seated in a room, holding a black and blue item...",
+        "createdAt": "2026-04-16T17:10:36.847Z"
+      },
+      {
+        "role": "user",
+        "content": "Okay, can you tell me what I look like?",
+        "createdAt": "2026-04-16T17:11:04.870Z"
+      },
+      {
+        "role": "assistant",
+        "content": "I can't see you directly, but if you provide a description or context, I can help with related information or advice!",
+        "createdAt": "2026-04-16T17:11:05.792Z"
+      },
+      {
+        "role": "user",
+        "content": "Incorrect. Tell me what you see and describe me.",
+        "createdAt": "2026-04-16T17:11:27.063Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Here is what I see right now: A person with a beard is sitting in front of a webcam, looking directly at the camera. The background shows a bed with pillows and a fan, and there are dark curtains partially drawn. Scene summary: A man is seated in a room with a bed an...",
+        "createdAt": "2026-04-16T17:11:27.064Z"
+      },
+      {
+        "role": "user",
+        "content": "Can you use your video to go into more descriptive detail of what you see?",
+        "createdAt": "2026-04-16T17:11:56.218Z"
+      },
+      {
+        "role": "assistant",
+        "content": "I currently don't have the capability to analyze video or provide detailed visual descriptions. If you describe the scene or what you're looking for, I can assist you better!",
+        "createdAt": "2026-04-16T17:11:57.217Z"
+      }
+    ]
+  },
+  "session_mo1s0m4s_0dxp7": {
+    "id": "session_mo1s0m4s_0dxp7",
+    "mode": "general",
+    "strongFocus": false,
+    "startedAt": "2026-04-16T17:51:50.284Z",
+    "endedAt": null,
+    "messages": [
+      {
+        "role": "user",
+        "content": "Hey, Scout!",
+        "createdAt": "2026-04-16T17:51:57.409Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Hey, Samuel! How's it going today?",
+        "createdAt": "2026-04-16T17:51:58.859Z"
+      },
+      {
+        "role": "user",
+        "content": "Learn English for free www.engvid.com",
+        "createdAt": "2026-04-16T17:52:14.193Z"
+      },
+      {
+        "role": "assistant",
+        "content": "That sounds like a great resource for learning English! If you need any tips or specific topics to focus on, just let me know!",
+        "createdAt": "2026-04-16T17:52:15.078Z"
+      },
+      {
+        "role": "user",
+        "content": "Okay, hey Scout, tell me what you see.",
+        "createdAt": "2026-04-16T17:52:44.143Z"
+      },
+      {
+        "role": "assistant",
+        "content": "A person with medium-length hair is sitting in front of a webcam, looking directly at the camera. The background shows a messy room with a bed, pillows, and a fan. It looks like a indoor setting with soft, natural light coming from a window lighting. Right now, The person appears to be...",
+        "createdAt": "2026-04-16T17:52:44.145Z"
+      }
+    ]
+  },
+  "session_mo1s7nqu_dpo2n": {
+    "id": "session_mo1s7nqu_dpo2n",
+    "mode": "general",
+    "strongFocus": false,
+    "startedAt": "2026-04-16T17:57:18.966Z",
+    "endedAt": null,
+    "messages": [
+      {
+        "role": "user",
+        "content": "Peace out.",
+        "createdAt": "2026-04-16T17:57:23.186Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Take care, Samuel! If you need anything, just reach out. Peace!",
+        "createdAt": "2026-04-16T17:57:25.159Z"
+      },
+      {
+        "role": "user",
+        "content": "Learn English for free www.engvid.com",
+        "createdAt": "2026-04-16T17:57:44.378Z"
+      },
+      {
+        "role": "assistant",
+        "content": "That’s a great resource for learning English! EngVid offers free video lessons on various topics. If you need tips on how to get started or specific lessons, just let me know!",
+        "createdAt": "2026-04-16T17:57:45.408Z"
+      },
+      {
+        "role": "user",
+        "content": "Tell me what you see.",
+        "createdAt": "2026-04-16T17:57:46.817Z"
+      },
+      {
+        "role": "assistant",
+        "content": "A person with a beard is sitting in front of a webcam, resting their chin on their hand and making a gesture that resembles a phone call. The background shows a messy room with a bed and various items. It looks like a indoor setting with dim, with some light coming from the window lighting.",
+        "createdAt": "2026-04-16T17:57:46.820Z"
+      },
+      {
+        "role": "user",
+        "content": "Thank you.",
+        "createdAt": "2026-04-16T17:57:57.535Z"
+      },
+      {
+        "role": "assistant",
+        "content": "You're welcome! If you need anything else, just let me know.",
+        "createdAt": "2026-04-16T17:57:58.323Z"
+      },
+      {
+        "role": "user",
+        "content": "Learn English for free www.engvid.com",
+        "createdAt": "2026-04-16T17:58:09.419Z"
+      },
+      {
+        "role": "assistant",
+        "content": "That’s a fantastic resource for learning English! EngVid offers a variety of free video lessons on grammar, vocabulary, and more. If you want specific recommendations or tips, feel free to ask!",
+        "createdAt": "2026-04-16T17:58:10.947Z"
+      }
+    ]
+  },
+  "session_mo1sfhoe_qs3yg": {
+    "id": "session_mo1sfhoe_qs3yg",
+    "mode": "general",
+    "strongFocus": false,
+    "startedAt": "2026-04-16T18:03:24.350Z",
+    "endedAt": null,
+    "messages": [
+      {
+        "role": "user",
+        "content": "Hey Scout, tell me what you see.",
+        "createdAt": "2026-04-16T18:03:43.669Z"
+      },
+      {
+        "role": "assistant",
+        "content": "A person with a beard is sitting in a room, wearing a blue shirt, and appears to be waving their hand. The background includes a bed and a fan, with soft lighting coming from a window. It looks like a indoor setting with soft, natural light from a window lighting.",
+        "createdAt": "2026-04-16T18:03:43.676Z"
+      },
+      {
+        "role": "user",
+        "content": "Beep. Beep.",
+        "createdAt": "2026-04-16T18:04:13.909Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Boop! What's on your mind, Samuel?",
+        "createdAt": "2026-04-16T18:04:14.749Z"
+      },
+      {
+        "role": "user",
+        "content": "Learn English for free www.engvid.com",
+        "createdAt": "2026-04-16T18:04:21.647Z"
+      },
+      {
+        "role": "assistant",
+        "content": "That sounds like a great resource for learning English! EngVid offers a variety of free lessons on grammar, vocabulary, and more. Are you looking for specific topics to focus on?",
+        "createdAt": "2026-04-16T18:04:22.874Z"
+      },
+      {
+        "role": "user",
+        "content": "If I show you my ingredients, can you give me a recipe?",
+        "createdAt": "2026-04-16T18:04:46.473Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Absolutely! Just let me know what ingredients you have, and I'll suggest a recipe for you.",
+        "createdAt": "2026-04-16T18:04:47.287Z"
+      },
+      {
+        "role": "user",
+        "content": "Learn English for free www.engvid.com",
+        "createdAt": "2026-04-16T18:04:59.472Z"
+      },
+      {
+        "role": "assistant",
+        "content": "It looks like you're sharing a resource for learning English. If you need help with specific topics or lessons from EngVid, just let me know!",
+        "createdAt": "2026-04-16T18:05:00.603Z"
+      }
+    ]
+  },
+  "session_mo1srwxj_np3vc": {
+    "id": "session_mo1srwxj_np3vc",
+    "mode": "general",
+    "strongFocus": false,
+    "startedAt": "2026-04-16T18:13:03.991Z",
+    "endedAt": null,
+    "messages": []
+  },
+  "session_mo1t2lwu_tgu6x": {
+    "id": "session_mo1t2lwu_tgu6x",
+    "mode": "general",
+    "strongFocus": false,
+    "startedAt": "2026-04-16T18:21:22.926Z",
+    "endedAt": null,
+    "messages": []
+  },
+  "session_mo1t7h79_ffgh5": {
+    "id": "session_mo1t7h79_ffgh5",
+    "mode": "general",
+    "strongFocus": false,
+    "startedAt": "2026-04-16T18:25:10.101Z",
+    "endedAt": null,
+    "messages": [
+      {
+        "role": "user",
+        "content": "Subscribe only clearly spoken English words.",
+        "createdAt": "2026-04-16T18:25:16.159Z"
+      },
+      {
+        "role": "assistant",
+        "content": "I understand your preference for clear spoken English. How can I assist you today, Samuel?",
+        "createdAt": "2026-04-16T18:25:17.420Z"
+      }
+    ]
+  },
+  "session_mo1tdelb_54uft": {
+    "id": "session_mo1tdelb_54uft",
+    "mode": "general",
+    "strongFocus": false,
+    "startedAt": "2026-04-16T18:29:46.655Z",
+    "endedAt": null,
+    "messages": []
+  },
+  "session_mo1wxumn_72psg": {
+    "id": "session_mo1wxumn_72psg",
+    "mode": "general",
+    "strongFocus": false,
+    "startedAt": "2026-04-16T20:09:39.407Z",
+    "endedAt": null,
+    "messages": []
+  },
+  "session_mo1x29j7_uzodv": {
+    "id": "session_mo1x29j7_uzodv",
+    "mode": "general",
+    "strongFocus": false,
+    "startedAt": "2026-04-16T20:13:05.347Z",
+    "endedAt": null,
+    "messages": []
+  },
+  "session_mo1x7ubu_b62wh": {
+    "id": "session_mo1x7ubu_b62wh",
+    "mode": "general",
+    "strongFocus": false,
+    "startedAt": "2026-04-16T20:17:25.578Z",
+    "endedAt": null,
+    "messages": []
+  },
+  "session_mo1xe34u_lhpyi": {
+    "id": "session_mo1xe34u_lhpyi",
+    "mode": "general",
+    "strongFocus": false,
+    "startedAt": "2026-04-16T20:22:16.926Z",
+    "endedAt": null,
+    "messages": [
+      {
+        "role": "user",
+        "content": "My dad.",
+        "createdAt": "2026-04-16T20:22:26.574Z"
+      },
+      {
+        "role": "assistant",
+        "content": "It sounds like you're looking for your dad, William Butcher. Do you need help with a specific way to find him or contact him?",
+        "createdAt": "2026-04-16T20:22:27.631Z"
+      }
+    ]
+  },
+  "session_mo1zr8m2_dbzkz": {
+    "id": "session_mo1zr8m2_dbzkz",
+    "mode": "general",
+    "strongFocus": false,
+    "startedAt": "2026-04-16T21:28:29.786Z",
+    "endedAt": null,
+    "messages": [
+      {
+        "role": "user",
+        "content": "What time is it right now?",
+        "createdAt": "2026-04-16T21:28:40.093Z"
+      },
+      {
+        "role": "assistant",
+        "content": "I can't provide real-time data right now, but you can check the time on your device or use a search engine for the current time in your location.",
+        "createdAt": "2026-04-16T21:28:41.836Z"
+      }
+    ]
+  },
+  "session_mo20a0fe_74q0h": {
+    "id": "session_mo20a0fe_74q0h",
+    "mode": "general",
+    "strongFocus": false,
+    "startedAt": "2026-04-16T21:43:05.642Z",
+    "endedAt": null,
+    "messages": [
+      {
+        "role": "user",
+        "content": "What's the time in West Virginia right now?",
+        "createdAt": "2026-04-16T21:43:14.052Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Current local time in West Virginia, United States is Thu, Apr 16, 5:43:14 PM. Timezone: America/New_York. Local date there is Thursday, April 16, 2026.",
+        "createdAt": "2026-04-16T21:43:14.086Z"
+      },
+      {
+        "role": "user",
+        "content": "What's the weather in Fahrenheit?",
+        "createdAt": "2026-04-16T21:43:38.529Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Current weather in Hildesheim: Clear, 9C (feels like 9C), humidity 81%, wind 4 km/h. Today looks patchy light drizzle with 8-16C and rain chance around 100%. Local time there is Thu, Apr 16, 9:43:39 PM (UTC).",
+        "createdAt": "2026-04-16T21:43:39.806Z"
+      },
+      {
+        "role": "user",
+        "content": "Incorrect. We want what the weather is like in West Virginia with degrees in Fahrenheit.",
+        "createdAt": "2026-04-16T21:44:16.487Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Current weather in West Virginia, United States: partly cloudy, 26.6C (feels like 23.1C), humidity 32%, wind 21.3 km/h. Today looks moderate rain with highs around 28C and lows near 16C, precipitation chance up to 65%. Tomorrow trends overcast with 14-24C and precipitation chance up to 9%. Local time there is Thu, Apr 16, 5:44:17 PM (America/New_York).",
+        "createdAt": "2026-04-16T21:44:17.101Z"
+      },
+      {
+        "role": "user",
+        "content": "Temperature in Fahrenheit degrees.",
+        "createdAt": "2026-04-16T21:45:04.586Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Current weather in Mount Emily Park: Partly cloudy, 28C (feels like 32C), humidity 84%, wind 9 km/h. Today looks patchy rain nearby with 28-30C and rain chance around 100%. Local time there is Thu, Apr 16, 9:45:06 PM (UTC).",
+        "createdAt": "2026-04-16T21:45:06.893Z"
+      }
+    ]
+  },
+  "session_mo20spbw_e4rcn": {
+    "id": "session_mo20spbw_e4rcn",
+    "mode": "general",
+    "strongFocus": false,
+    "startedAt": "2026-04-16T21:57:37.724Z",
+    "endedAt": null,
+    "messages": [
+      {
+        "role": "user",
+        "content": "What's the weather like in West Virginia?",
+        "createdAt": "2026-04-16T21:57:45.330Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Current weather in West Virginia, United States: partly cloudy, 80°F (feels like 74°F), humidity 32%, wind 13 mph. Today looks moderate rain with highs around 82°F and lows near 61°F, precipitation chance up to 65%. Tomorrow trends overcast with 57-75°F and precipitation chance up to 9%. Local time there is Thu, Apr 16, 5:57:45 PM (America/New_York).",
+        "createdAt": "2026-04-16T21:57:45.969Z"
+      },
+      {
+        "role": "user",
+        "content": "Please see the complete disclaimer at https://sites.google.com",
+        "createdAt": "2026-04-16T21:58:37.940Z"
+      },
+      {
+        "role": "assistant",
+        "content": "It seems you shared a link, but I can't access external sites. If you need help with something specific from that disclaimer, feel free to share the details!",
+        "createdAt": "2026-04-16T21:58:39.140Z"
+      },
+      {
+        "role": "user",
+        "content": "Okay, tell me what you see.",
+        "createdAt": "2026-04-16T21:58:40.827Z"
+      },
+      {
+        "role": "assistant",
+        "content": "A 3D printer is set up on a desk, illuminated by a light source above it. Various objects, including a lamp and some containers, are visible on the desk, suggesting an active workspace. It looks like a indoor setting with dim with a focused light source from above the 3D printer lighting.",
+        "createdAt": "2026-04-16T21:58:40.828Z"
+      },
+      {
+        "role": "user",
+        "content": "Subscribe only clearly spoken English words.",
+        "createdAt": "2026-04-16T21:58:46.062Z"
+      },
+      {
+        "role": "assistant",
+        "content": "I understand you want clear spoken English. How can I assist you with that?",
+        "createdAt": "2026-04-16T21:58:46.856Z"
+      },
+      {
+        "role": "user",
+        "content": "Interrupting.",
+        "createdAt": "2026-04-16T21:58:58.888Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Got it! If you have something specific to share or ask, just let me know!",
+        "createdAt": "2026-04-16T21:58:59.903Z"
+      },
+      {
+        "role": "user",
+        "content": "Subscribe only clearly spoken English words.",
+        "createdAt": "2026-04-16T21:59:16.029Z"
+      },
+      {
+        "role": "assistant",
+        "content": "I understand. I'll stick to clear spoken English. How can I assist you today?",
+        "createdAt": "2026-04-16T21:59:16.796Z"
+      },
+      {
+        "role": "user",
+        "content": "Okay, tell me what you see.",
+        "createdAt": "2026-04-16T21:59:21.008Z"
+      },
+      {
+        "role": "assistant",
+        "content": "A 3D printer is set up on a desk, with a print bed visible and a filament spool above. The environment is dimly lit, and various objects are scattered around the workspace. It looks like a indoor setting with dim, with a focused light source illuminating the 3D printer lighting.",
+        "createdAt": "2026-04-16T21:59:21.011Z"
+      },
+      {
+        "role": "user",
+        "content": "Can you read anything?",
+        "createdAt": "2026-04-16T21:59:47.610Z"
+      },
+      {
+        "role": "assistant",
+        "content": "I can't read text or analyze specific details without more context. If you provide an image or describe what you're looking at, I can help better!",
+        "createdAt": "2026-04-16T21:59:49.154Z"
+      },
+      {
+        "role": "user",
+        "content": "Subscribe only clearly spoken English words.",
+        "createdAt": "2026-04-16T22:00:02.965Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Understood! I'll only use clear spoken English words. How can I help you today?",
+        "createdAt": "2026-04-16T22:00:03.939Z"
+      },
+      {
+        "role": "user",
+        "content": "Hey, Scout.",
+        "createdAt": "2026-04-16T22:00:18.645Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Hey, Samuel! What’s on your mind today?",
+        "createdAt": "2026-04-16T22:00:19.451Z"
+      },
+      {
+        "role": "user",
+        "content": "Can you take a snapshot and",
+        "createdAt": "2026-04-16T22:00:30.135Z"
+      },
+      {
+        "role": "assistant",
+        "content": "I can't take snapshots myself, but if you have an image you'd like me to analyze or discuss, feel free to share it!",
+        "createdAt": "2026-04-16T22:00:32.393Z"
+      }
+    ]
   }
 }

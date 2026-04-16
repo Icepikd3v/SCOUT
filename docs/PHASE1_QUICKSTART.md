@@ -15,13 +15,22 @@
 4. Optional: tune voice with `OPENAI_TTS_MODEL`, `OPENAI_TTS_VOICE`, `OPENAI_TTS_STYLE`, and `OPENAI_TTS_SPEED`
 5. Optional: tune speech-to-text/vision with `OPENAI_TRANSCRIBE_MODEL` and `OPENAI_VISION_MODEL`
 6. Optional: choose chat engine:
-   - `AI_PROVIDER=auto` (default, prefers OpenAI then Ollama)
+   - `AI_PROVIDER=auto` (default, uses routing policy; cloud-first by default)
    - `AI_PROVIDER=openai`
    - `AI_PROVIDER=ollama`
 7. Optional Ollama config:
    - `OLLAMA_BASE_URL=http://127.0.0.1:11434`
    - `OLLAMA_MODEL=llama3.1:8b`
-8. Optional secure control APIs:
+8. Optional mode-aware routing and model policy:
+   - `AI_ROUTING_POLICY=cloud_first` (`local_first|cloud_first|mode_aware`)
+   - `OLLAMA_MODEL_GENERAL`, `OLLAMA_MODEL_TRAINING`, `OLLAMA_MODEL_SAFETY`, `OLLAMA_MODEL_RACE`, `OLLAMA_MODEL_FOCUS`
+   - `OPENAI_MODEL_GENERAL`, `OPENAI_MODEL_TRAINING`, `OPENAI_MODEL_SAFETY`, `OPENAI_MODEL_RACE`, `OPENAI_MODEL_FOCUS`
+   - Mission packs are loaded from `data/mission_packs.json`
+9. Optional live-data cache controls:
+   - `LIVE_CACHE_ENABLED=1`
+   - `LIVE_CACHE_TTL_MS=120000`
+   - `LIVE_CACHE_MAX_ENTRIES=600`
+10. Optional secure control APIs:
    - `SCOUT_ADMIN_TOKEN=<set-a-strong-token>`
    - `SCOUT_FS_ENABLED=1`
    - `SCOUT_FS_ROOT=.`
@@ -85,7 +94,7 @@ This launches:
 - `GET /api/memory`
 - `POST /api/stt` body: `{ "audioBase64": "...", "mimeType": "audio/webm" }`
 - `POST /api/vision` body: `{ "imageDataUrl": "data:image/jpeg;base64,..." }`
-- `POST /api/detect` body: `{ "imageDataUrl": "data:image/jpeg;base64,..." }` (item + face detection)
+- `POST /api/detect` body: `{ "imageDataUrl": "data:image/jpeg;base64,...", "sensorContext": { "lidarSummary": "...", "depthSummary": "...", "depthBands": ["near:clear","mid:occupied"] } }` (item + face + richer scene detection; `sensorContext` optional for LiDAR/depth-capable devices and can be omitted for standard webcam flows including Raspberry Pi webcam mode)
 - `POST /api/music-identify` body: `{ "audioBase64": "...", "mimeType": "audio/webm", "hint": "what song is this" }`
 - `POST /api/tts` body: `{ "text": "..." }`
 - `POST /api/motion-intent` body: `{ "state": "...", "mood": "...", "mode": "...", "expression": "...", "head": { "pitchDeg": 0, "yawDeg": 0, "rollDeg": 0 }, "base": { "yawRateDegPerSec": 0 } }`

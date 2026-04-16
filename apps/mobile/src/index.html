@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <title>S.C.O.U.T. Mobile</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="topbar">
+        <h1>S.C.O.U.T. Mobile</h1>
+        <button id="saveBaseUrlBtn" class="secondary">Save</button>
+      </header>
+
+      <section class="panel">
+        <label for="baseUrlInput">Runtime URL</label>
+        <input id="baseUrlInput" type="url" placeholder="http://192.168.1.50:8787" />
+        <p class="hint">Set to your Pi or cloud runtime URL.</p>
+      </section>
+
+      <section class="panel row">
+        <button id="sessionStartBtn">Start Session</button>
+        <button id="sessionStopBtn" class="secondary">Stop Session</button>
+      </section>
+
+      <section class="panel">
+        <label for="messageInput">Message</label>
+        <textarea id="messageInput" rows="3" placeholder="Ask S.C.O.U.T. something..."></textarea>
+        <div class="row">
+          <button id="chatBtn">Send Chat</button>
+          <button id="cameraDescribeBtn" class="secondary">Describe Camera Frame</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <video id="cameraPreview" autoplay playsinline muted></video>
+      </section>
+
+      <section class="panel">
+        <h2>Reply</h2>
+        <pre id="replyOutput">No response yet.</pre>
+      </section>
+    </main>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

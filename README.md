@@ -33,6 +33,9 @@ S.C.O.U.T. is more than a chatbot. It should:
 - [Avatar System](docs/AVATAR_SYSTEM.md)
 - [Phase 1 Quickstart](docs/PHASE1_QUICKSTART.md)
 - [Mac-to-Pi Workflow](docs/MAC_TO_PI_WORKFLOW.md)
+- [Pi Production Deployment](docs/PI_PRODUCTION_DEPLOYMENT.md)
+- [Mobile Packaging (iOS/Android)](docs/MOBILE_PACKAGING.md)
+- [Macbook Test and Release Flow](docs/MACBOOK_TEST_AND_RELEASE.md)
 
 ## Current Build Status
 Milestone 1 starter scaffold is now in place:

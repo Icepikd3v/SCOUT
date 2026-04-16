@@ -1,0 +1,19 @@
+[Unit]
+Description=S.C.O.U.T. Runtime API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__SCOUT_USER__
+WorkingDirectory=__SCOUT_DIR__
+EnvironmentFile=__SCOUT_DIR__/.env
+ExecStart=/usr/bin/env node apps/runtime/server.js
+Restart=always
+RestartSec=3
+TimeoutStopSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

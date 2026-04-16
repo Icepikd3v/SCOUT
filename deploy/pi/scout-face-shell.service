@@ -1,0 +1,19 @@
+[Unit]
+Description=S.C.O.U.T. Face Shell (Electron Kiosk)
+After=graphical.target scout-runtime.service
+Wants=scout-runtime.service
+
+[Service]
+Type=simple
+User=__SCOUT_USER__
+WorkingDirectory=__SCOUT_DIR__
+EnvironmentFile=__SCOUT_DIR__/.env
+ExecStart=/bin/bash __SCOUT_DIR__/scripts/start-pi-face-shell.sh
+ExecStop=/bin/bash __SCOUT_DIR__/scripts/stop-pi-face-shell.sh
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=graphical.target
