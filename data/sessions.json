@@ -2607,5 +2607,80 @@
         "createdAt": "2026-04-16T22:00:32.393Z"
       }
     ]
+  },
+  "session_mo24opnp_i9xkr": {
+    "id": "session_mo24opnp_i9xkr",
+    "mode": "general",
+    "strongFocus": false,
+    "startedAt": "2026-04-16T23:46:29.989Z",
+    "endedAt": null,
+    "messages": []
+  },
+  "session_mo24pmvw_qzt5e": {
+    "id": "session_mo24pmvw_qzt5e",
+    "mode": "general",
+    "strongFocus": false,
+    "startedAt": "2026-04-16T23:47:13.052Z",
+    "endedAt": null,
+    "messages": []
+  },
+  "session_mo24rjf4_hip1z": {
+    "id": "session_mo24rjf4_hip1z",
+    "mode": "general",
+    "strongFocus": false,
+    "startedAt": "2026-04-16T23:48:41.872Z",
+    "endedAt": null,
+    "messages": []
+  },
+  "session_mo24t8wn_z13th": {
+    "id": "session_mo24t8wn_z13th",
+    "mode": "general",
+    "strongFocus": false,
+    "startedAt": "2026-04-16T23:50:01.559Z",
+    "endedAt": null,
+    "messages": []
+  },
+  "session_mo24ye6i_bwb0k": {
+    "id": "session_mo24ye6i_bwb0k",
+    "mode": "general",
+    "strongFocus": false,
+    "startedAt": "2026-04-16T23:54:01.674Z",
+    "endedAt": null,
+    "messages": []
+  },
+  "session_mo24yxrj_zr52d": {
+    "id": "session_mo24yxrj_zr52d",
+    "mode": "general",
+    "strongFocus": false,
+    "startedAt": "2026-04-16T23:54:27.055Z",
+    "endedAt": null,
+    "messages": []
+  },
+  "session_mo2590c9_5bng0": {
+    "id": "session_mo2590c9_5bng0",
+    "mode": "general",
+    "strongFocus": false,
+    "startedAt": "2026-04-17T00:02:16.953Z",
+    "endedAt": null,
+    "messages": []
+  },
+  "session_mo25ea3p_9f28a": {
+    "id": "session_mo25ea3p_9f28a",
+    "mode": "general",
+    "strongFocus": false,
+    "startedAt": "2026-04-17T00:06:22.885Z",
+    "endedAt": null,
+    "messages": [
+      {
+        "role": "user",
+        "content": "What's the weather like in West Virginia?",
+        "createdAt": "2026-04-17T00:06:30.362Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Current weather in West Virginia, United States: overcast, 69°F (feels like 69°F), humidity 69%, wind 8 mph. Today looks light drizzle with highs around 82°F and lows near 61°F, precipitation chance up to 72%. Tomorrow trends overcast with 57-75°F and precipitation chance up to 8%. Local time there is Thu, Apr 16, 8:06:30 PM (America/New_York).",
+        "createdAt": "2026-04-17T00:06:30.997Z"
+      }
+    ]
   }
 }
