@@ -62,9 +62,9 @@ const handsFreeFollowups = true;
 const CONVERSATION_WINDOW_MS = 30000;
 const CONVERSATION_MAX_MISSES = 3;
 const LOCKED_CONCEPT_TUNE = Object.freeze({
-  eyeSizePct: 84,
-  browHeightOffset: -8,
-  smileWidthPct: 128,
+  eyeSizePct: 92,
+  browHeightOffset: -11,
+  smileWidthPct: 136,
 });
 const VOICE_MAX_CAPTURE_MS = 7600;
 const VOICE_FOLLOWUP_CAPTURE_MS = 10000;

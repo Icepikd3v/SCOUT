@@ -537,29 +537,29 @@ body {
 .eye::after {
   content: "";
   position: absolute;
-  right: 8%;
-  top: -1.5%;
-  width: 40%;
-  height: 16%;
-  border-top: clamp(4px, 0.48vh, 6px) solid rgba(10, 18, 56, 0.84);
+  right: 7%;
+  top: -9%;
+  width: 48%;
+  height: 20%;
+  border-top: clamp(5px, 0.58vh, 8px) solid rgba(8, 16, 52, 0.92);
   border-radius: 100% 100% 0 0;
-  transform: rotate(14deg);
+  transform: rotate(13deg);
   box-shadow:
-    -14px 1px 0 -7px rgba(10, 18, 56, 0.78),
-    -24px 3px 0 -8px rgba(10, 18, 56, 0.74),
-    -34px 5px 0 -9px rgba(10, 18, 56, 0.68);
+    -12px 2px 0 -7px rgba(8, 16, 52, 0.86),
+    -22px 4px 0 -8px rgba(8, 16, 52, 0.8),
+    -32px 7px 0 -9px rgba(8, 16, 52, 0.72);
   pointer-events: none;
   z-index: 6;
 }
 
 .eye:first-child::after {
-  left: 8%;
+  left: 7%;
   right: auto;
-  transform: rotate(-14deg);
+  transform: rotate(-13deg);
   box-shadow:
-    14px 1px 0 -7px rgba(10, 18, 56, 0.78),
-    24px 3px 0 -8px rgba(10, 18, 56, 0.74),
-    34px 5px 0 -9px rgba(10, 18, 56, 0.68);
+    12px 2px 0 -7px rgba(8, 16, 52, 0.86),
+    22px 4px 0 -8px rgba(8, 16, 52, 0.8),
+    32px 7px 0 -9px rgba(8, 16, 52, 0.72);
 }
 
 .eye-sclera {
@@ -727,6 +727,20 @@ body.debug-overlay .detection-overlay {
   transform-origin: center center;
   transition: transform 180ms ease, opacity 160ms ease, width 180ms ease, filter 160ms ease, border-color 140ms ease;
   filter: drop-shadow(0 0 4px rgba(86, 175, 255, 0.16));
+  position: relative;
+}
+
+.brow::after {
+  content: "";
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: -2px;
+  height: 38%;
+  border-radius: inherit;
+  background: linear-gradient(to bottom, rgba(206, 242, 255, 0.48), rgba(206, 242, 255, 0));
+  opacity: 0.72;
+  pointer-events: none;
 }
 
 .brow-left {
@@ -1498,41 +1512,41 @@ body.high-contrast .tap-to-talk-btn {
 }
 
 body.face-only .face-head {
-  width: min(112vh, 104vw);
-  top: 55.1%;
+  width: min(126vh, 114vw);
+  top: 53.8%;
 }
 
 body.face-only .eyes {
-  width: 52%;
-  top: 38.7%;
+  width: 56%;
+  top: 36.9%;
 }
 
 body.face-only .eye {
-  width: calc(clamp(172px, 21.2vw, 284px) * var(--eye-scale));
+  width: calc(clamp(190px, 23.6vw, 308px) * var(--eye-scale));
 }
 
 body.face-only .brows {
-  top: calc(22.3% + var(--brow-height-offset));
-  width: 56%;
+  top: calc(20.8% + var(--brow-height-offset));
+  width: 60%;
 }
 
 body.face-only .brow {
-  width: clamp(118px, 14.2vw, 220px);
-  height: clamp(22px, 2.6vh, 36px);
-  border-top-width: clamp(9px, 1.02vh, 15px);
-  filter: drop-shadow(0 0 8px rgba(94, 176, 255, 0.2));
+  width: clamp(132px, 15.4vw, 244px);
+  height: clamp(24px, 2.9vh, 40px);
+  border-top-width: clamp(10px, 1.12vh, 16px);
+  filter: drop-shadow(0 0 9px rgba(94, 176, 255, 0.24));
 }
 
 body.face-only .cheek-left {
-  left: 22.8%;
+  left: 21.6%;
 }
 
 body.face-only .cheek-right {
-  right: 22.8%;
+  right: 21.6%;
 }
 
 body.face-only .mouth {
-  bottom: 30.7%;
+  bottom: 29.3%;
 }
 
 body.face-only .mouth[data-viseme="neutral"],
